@@ -1,0 +1,6 @@
+#!/Users/jessicasolomon/uniride/UniRide/ride_booking_app-main/bookridevenv/bin/python3.11
+import sys
+from twisted.scripts.trial import run
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(run())

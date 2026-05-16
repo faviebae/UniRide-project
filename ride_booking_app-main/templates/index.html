@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Home - Student Ride Booking{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="bg-white rounded-lg shadow-xl p-8 text-center">
+        <h1 class="text-4xl font-bold mb-4 text-blue-600">Welcome to RideBook</h1>
+        <p class="text-xl mb-8 text-gray-600">Your campus ride-sharing solution</p>
+        
+        {% if not user.is_authenticated %}
+            <div class="space-y-4 max-w-md mx-auto">
+                <a href="/login/" class="block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
+                    Login to Your Account
+                </a>
+                <a href="/register/" class="block bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition">
+                    Create New Account
+                </a>
+            </div>
+        {% else %}
+            {% if not user.role == 'super_admin' %}
+                <div class="space-y-4">
+                    <p class="text-gray-700">Welcome back, {{ user.get_full_name }}!</p>
+                    <p class="text-sm text-gray-500">Role: {{ user.role }}</p>
+                    <div class="mt-4">
+                        <a href="/{{ user.role }}/dashboard/" class="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                            Go to Dashboard
+                        </a>
+                    </div>
+                </div>
+            {% else %}
+                <div class="space-y-4">
+                    <p class="text-gray-700">Welcome back, {{ user.get_full_name }}!</p>
+                    <p class="text-sm text-gray-500">Role: {{ user.role }}</p>
+                    <div class="mt-4">
+                        <a href="/admin" class="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                            Go to Dashboard
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Student Dashboard{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm">Wallet Balance</p>
+                    <p class="text-2xl font-bold text-blue-600">₦{{ user.wallet_balance|floatformat:2 }}</p>
+                </div>
+                <i class="fas fa-wallet text-3xl text-blue-600"></i>
+            </div>
+            <button onclick="topupWallet()" class="mt-4 text-sm text-blue-600 hover:text-blue-700">
+                <i class="fas fa-plus-circle"></i> Top Up
+            </button>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm">Total Trips</p>
+                    <p class="text-2xl font-bold text-green-600">{{ total_trips }}</p>
+                </div>
+                <i class="fas fa-car text-3xl text-green-600"></i>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm">Total Spent</p>
+                    <p class="text-2xl font-bold text-purple-600">₦{{ total_spent|floatformat:2 }}</p>
+                </div>
+                <i class="fas fa-chart-line text-3xl text-purple-600"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Active Trip Section -->
+    {% if active_trip %}
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-8" id="activeTripSection">
+        <h2 class="text-2xl font-bold mb-4">Active Trip</h2>
+        <div id="tripDetails">
+            <!-- Trip details will be updated via JavaScript -->
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Book Ride Form -->
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-bold mb-6">Book a Ride</h2>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Booking Form -->
+            <div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Pickup Location
+                    </label>
+                    <input type="text" id="pickupInput" 
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="Enter pickup location">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Destination
+                    </label>
+                    <input type="text" id="destinationInput" 
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="Enter destination">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Ride Type
+                    </label>
+                    <select id="rideType" class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                        <option value="standard">Standard (4 seats)</option>
+                        <option value="premium">Premium (4 seats)</option>
+                        <option value="suv">SUV (6 seats)</option>
+                    </select>
+                </div>
+                
+                <div id="fareEstimate" class="hidden mb-4 p-4 bg-gray-50 rounded-lg">
+                    <p class="font-semibold">Fare Estimate:</p>
+                    <p class="text-2xl font-bold text-blue-600">₦<span id="estimatedFare">0</span></p>
+                    <p class="text-sm text-gray-600">Distance: <span id="distance"></span> km</p>
+                    <p class="text-sm text-gray-600">Duration: <span id="duration"></span> mins</p>
+                </div>
+                
+                <button onclick="calculateFare()" 
+                        class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 mb-2">
+                    Calculate Fare
+                </button>
+                
+                <button onclick="bookRide()" 
+                        id="bookBtn"
+                        class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                        disabled>
+                    Book Now
+                </button>
+            </div>
+            
+            <!-- Map -->
+            <div>
+                <div id="map" class="w-full h-96 rounded-lg shadow"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Nearby Drivers -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h3 class="text-xl font-bold mb-4">Nearby Drivers</h3>
+        <div id="nearbyDrivers" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Drivers will be loaded here -->
+        </div>
+    </div>
+</div>
+
+<!-- Top Up Modal -->
+<div id="topupModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-lg bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">Top Up Wallet</h3>
+            <button onclick="closeTopupModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        <input type="number" id="topupAmount" placeholder="Amount (₦)" 
+               class="w-full border border-gray-300 rounded-lg px-4 py-2 mb-4">
+        <button onclick="processTopup()" 
+                class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+            Top Up
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places"></script>
+<script src="{% static 'js/student.js' %}"></script>
+{% endblock %}

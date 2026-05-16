@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}Register - RideBook{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6">
+    <h1 class="text-2xl font-bold mb-6 text-center">Register for RideBook</h1>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-4 p-3 rounded {% if message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    {% if errors %}
+        <div class="mb-4 p-3 rounded bg-red-100 text-red-700">
+            {% for field, error_list in errors.items %}
+                {% for error in error_list %}
+                    <p>{{ field }}: {{ error }}</p>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+    <form method="POST" action="/register/" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <!-- Basic Information -->
+        <div class="mb-6">
+            <h2 class="text-lg font-semibold mb-4 text-gray-700">Basic Information</h2>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="email">
+                    Email *
+                </label>
+                <input type="email" name="email" id="email" required
+                       value="{{ form_data.email|default:'' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="first_name">
+                    First Name *
+                </label>
+                <input type="text" name="first_name" id="first_name" required
+                       value="{{ form_data.first_name|default:'' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="last_name">
+                    Last Name *
+                </label>
+                <input type="text" name="last_name" id="last_name" required
+                       value="{{ form_data.last_name|default:'' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="phone_number">
+                    Phone Number *
+                </label>
+                <input type="tel" name="phone_number" id="phone_number" required
+                       placeholder="+1234567890"
+                       value="{{ form_data.phone_number|default:'' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="role">
+                    Role *
+                </label>
+                <select name="role" id="role" required
+                        onchange="toggleLicenseFields()"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                    <option value="student" {% if form_data.role == 'student' %}selected{% endif %}>Student</option>
+                    <option value="driver" {% if form_data.role == 'driver' %}selected{% endif %}>Driver</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Driver License Information (shown only when role is driver) -->
+        <div id="licenseFields" class="mb-6" style="display: {% if form_data.role == 'driver' %}block{% else %}none{% endif %};">
+            <h2 class="text-lg font-semibold mb-4 text-gray-700">Driver License Information</h2>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="license_number">
+                    License Number *
+                </label>
+                <input type="text" name="license_number" id="license_number"
+                       value="{{ form_data.license_number|default:'' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                <p class="text-xs text-gray-500 mt-1">Your driver's license number</p>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="license_expiry">
+                    License Expiry Date *
+                </label>
+                <input type="date" name="license_expiry" id="license_expiry"
+                       value="{{ form_data.license_expiry|default:'' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                <p class="text-xs text-gray-500 mt-1">When does your license expire?</p>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="license_photo">
+                    License Photo *
+                </label>
+                <input type="file" name="license_photo" id="license_photo" accept="image/*"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                <p class="text-xs text-gray-500 mt-1">Upload a photo of your driver's license</p>
+            </div>
+        </div>
+        
+        <!-- Password Fields -->
+        <div class="mb-6">
+            <h2 class="text-lg font-semibold mb-4 text-gray-700">Security</h2>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
+                    Password *
+                </label>
+                <input type="password" name="password" id="password" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="confirm_password">
+                    Confirm Password *
+                </label>
+                <input type="password" name="confirm_password" id="confirm_password" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+            </div>
+        </div>
+        
+        <button type="submit" 
+                class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">
+            Register
+        </button>
+    </form>
+    
+    <div class="mt-4 text-center">
+        <p class="text-gray-600">Already have an account? 
+            <a href="/login/" class="text-blue-600 hover:text-blue-700">Login here</a>
+        </p>
+    </div>
+</div>
+
+<script>
+    function toggleLicenseFields() {
+        const role = document.getElementById('role').value;
+        const licenseFields = document.getElementById('licenseFields');
+        
+        if (role === 'driver') {
+            licenseFields.style.display = 'block';
+            // Make license fields required
+            document.getElementById('license_number').required = true;
+            document.getElementById('license_expiry').required = true;
+            document.getElementById('license_photo').required = true;
+        } else {
+            licenseFields.style.display = 'none';
+            // Remove required attribute
+            document.getElementById('license_number').required = false;
+            document.getElementById('license_expiry').required = false;
+            document.getElementById('license_photo').required = false;
+        }
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleLicenseFields();
+    });
+</script>
+{% endblock %}
