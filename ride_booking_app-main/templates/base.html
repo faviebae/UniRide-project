@@ -20,6 +20,56 @@
     
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+
+    
+    <style>
+        /* Toast animations */
+        .toast-slide-in {
+            animation: slideInRight 0.3s ease-out;
+        }
+        
+        .toast-slide-out {
+            animation: slideOutRight 0.3s ease-out forwards;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+        
+        /* Loading spinner */
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body class="bg-gray-100">
     <!-- Navigation -->
@@ -33,6 +83,24 @@
                 
                 {% if user.is_authenticated %}
                 <div class="flex items-center space-x-4">
+                    <!-- Notification Bell -->
+                    <div class="relative">
+                        <button onclick="toggleNotifications()" class="text-gray-600 hover:text-blue-600 relative">
+                            <i class="fas fa-bell text-xl"></i>
+                            <span id="notificationBadge" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 hidden">0</span>
+                        </button>
+                        <div id="notificationDropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-2 z-20 max-h-96 overflow-y-auto">
+                            <div class="px-4 py-2 border-b">
+                                <h3 class="font-semibold text-gray-900">Notifications</h3>
+                            </div>
+                            <div id="notificationList" class="divide-y">
+                                <div class="px-4 py-3 text-center text-gray-500 text-sm">
+                                    No notifications
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <span class="text-gray-600">
                         <i class="fas fa-user-circle"></i> {{ user.get_full_name }}
                     </span>
@@ -51,10 +119,10 @@
                             <a href="/profile/" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">
                                 <i class="fas fa-user mr-2"></i> Profile
                             </a>
-                            <a href="/wallet/" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                            <!-- <a href="/wallet/" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">
                                 <i class="fas fa-wallet mr-2"></i> Wallet
-                            </a>
-                            <a href="/trips/" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                            </a> -->
+                            <a href="{% url 'trip_history' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">
                                 <i class="fas fa-history mr-2"></i> Trip History
                             </a>
                             <hr class="my-1">
@@ -89,11 +157,14 @@
         {% block content %}{% endblock %}
     </main>
     
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+    
     <!-- PWA Install Prompt -->
     <div id="installPrompt" class="hidden fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-white rounded-lg shadow-xl p-4 border border-blue-100 z-50">
         <div class="flex items-start">
             <div class="flex-1">
-                <h3 class="font-semibold text-gray-900">Install RideBook App</h3>
+                <h3 class="font-semibold text-gray-900">Install UniRide App</h3>
                 <p class="text-sm text-gray-600 mt-1">Get faster access and offline support</p>
             </div>
             <button onclick="closeInstallPrompt()" class="text-gray-400 hover:text-gray-600">✕</button>
@@ -104,8 +175,258 @@
     </div>
     
     <script>
-        // WebSocket configuration
+        // ========== NOTIFICATION FUNCTIONS ==========
+        
+        // Store notifications in memory
+        let notifications = [];
+        let notificationId = 0;
+        
+        // Request notification permission on page load with delay
+        document.addEventListener('DOMContentLoaded', function() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                setTimeout(() => {
+                    Notification.requestPermission();
+                }, 3000);
+            }
+        });
+        
+        // Show browser notification (popup)
+        function showBrowserNotification(title, body, tag = null) {
+            if (!('Notification' in window)) return;
+            
+            if (Notification.permission === 'granted') {
+                const options = {
+                    body: body,
+                    icon: '/static/images/icon-192.png',
+                    badge: '/static/images/badge.png',
+                    vibrate: [200, 100, 200],
+                    silent: false,
+                    tag: tag || 'uniride-notification'
+                };
+                
+                const notification = new Notification(title, options);
+                
+                // Close after 5 seconds
+                setTimeout(() => notification.close(), 5000);
+                
+                // Handle click
+                notification.onclick = function() {
+                    window.focus();
+                    this.close();
+                };
+            } 
+            else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        showBrowserNotification(title, body, tag);
+                    }
+                });
+            }
+        }
+        
+        // Show toast notification (on-page)
+        function showToastNotification(title, message, type = 'info', duration = 5000) {
+            const toastContainer = document.getElementById('toastContainer');
+            if (!toastContainer) return;
+            
+            const toastId = 'toast_' + Date.now();
+            const toast = document.createElement('div');
+            
+            const bgColors = {
+                'success': 'border-l-4 border-green-500 bg-white',
+                'error': 'border-l-4 border-red-500 bg-white',
+                'warning': 'border-l-4 border-yellow-500 bg-white',
+                'info': 'border-l-4 border-blue-500 bg-white'
+            };
+            
+            const icons = {
+                'success': 'fa-check-circle text-green-500',
+                'error': 'fa-exclamation-circle text-red-500',
+                'warning': 'fa-exclamation-triangle text-yellow-500',
+                'info': 'fa-info-circle text-blue-500'
+            };
+            
+            toast.id = toastId;
+            toast.className = `${bgColors[type]} rounded-lg shadow-lg p-4 min-w-[300px] transform transition-all duration-300 toast-slide-in`;
+            toast.innerHTML = `
+                <div class="flex items-start">
+                    <i class="fas ${icons[type]} mr-3 mt-0.5"></i>
+                    <div class="flex-1">
+                        <h4 class="font-semibold text-gray-900">${escapeHtml(title)}</h4>
+                        <p class="text-sm text-gray-600 mt-1">${escapeHtml(message)}</p>
+                    </div>
+                    <button onclick="this.closest('[id^=toast_]').remove()" class="text-gray-400 hover:text-gray-600 ml-3">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            // Auto remove after duration
+            setTimeout(() => {
+                const toastElement = document.getElementById(toastId);
+                if (toastElement) {
+                    toastElement.classList.remove('toast-slide-in');
+                    toastElement.classList.add('toast-slide-out');
+                    setTimeout(() => toastElement.remove(), 300);
+                }
+            }, duration);
+        }
+        
+        // Add notification to dropdown list
+        function addToNotificationList(title, message, type = 'info') {
+            const notificationList = document.getElementById('notificationList');
+            if (!notificationList) return;
+            
+            notificationId++;
+            const id = notificationId;
+            
+            notifications.unshift({
+                id: id,
+                title: title,
+                message: message,
+                type: type,
+                timestamp: new Date(),
+                read: false
+            });
+            
+            // Keep only last 20 notifications
+            if (notifications.length > 20) notifications.pop();
+            
+            updateNotificationBadge();
+            renderNotificationList();
+        }
+        
+        // Update notification badge count
+        function updateNotificationBadge() {
+            const badge = document.getElementById('notificationBadge');
+            if (!badge) return;
+            
+            const unreadCount = notifications.filter(n => !n.read).length;
+            
+            if (unreadCount > 0) {
+                badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+        
+        // Render notification list
+        function renderNotificationList() {
+            const notificationList = document.getElementById('notificationList');
+            if (!notificationList) return;
+            
+            if (notifications.length === 0) {
+                notificationList.innerHTML = '<div class="px-4 py-3 text-center text-gray-500 text-sm">No notifications</div>';
+                return;
+            }
+            
+            notificationList.innerHTML = notifications.map(notif => `
+                <div class="px-4 py-3 hover:bg-gray-50 cursor-pointer ${!notif.read ? 'bg-blue-50' : ''}" 
+                     onclick="markNotificationRead(${notif.id})">
+                    <div class="flex items-start">
+                        <i class="fas ${getNotificationIcon(notif.type)} mr-3 mt-0.5 text-${getNotificationColor(notif.type)}-500"></i>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-900">${escapeHtml(notif.title)}</p>
+                            <p class="text-xs text-gray-600 mt-1">${escapeHtml(notif.message)}</p>
+                            <p class="text-xs text-gray-400 mt-1">${formatTime(notif.timestamp)}</p>
+                        </div>
+                        ${!notif.read ? '<div class="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>' : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function getNotificationIcon(type) {
+            const icons = {
+                'success': 'fa-check-circle',
+                'error': 'fa-exclamation-circle',
+                'warning': 'fa-exclamation-triangle',
+                'ride': 'fa-car',
+                'payment': 'fa-money-bill-wave',
+                'info': 'fa-info-circle'
+            };
+            return icons[type] || 'fa-bell';
+        }
+        
+        function getNotificationColor(type) {
+            const colors = {
+                'success': 'green',
+                'error': 'red',
+                'warning': 'yellow',
+                'ride': 'blue',
+                'payment': 'green',
+                'info': 'blue'
+            };
+            return colors[type] || 'gray';
+        }
+        
+        function markNotificationRead(id) {
+            const notification = notifications.find(n => n.id === id);
+            if (notification) {
+                notification.read = true;
+                updateNotificationBadge();
+                renderNotificationList();
+            }
+        }
+        
+        function markAllNotificationsRead() {
+            notifications.forEach(n => n.read = true);
+            updateNotificationBadge();
+            renderNotificationList();
+        }
+        
+        function clearAllNotifications() {
+            notifications = [];
+            updateNotificationBadge();
+            renderNotificationList();
+        }
+        
+        function formatTime(date) {
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            
+            if (minutes < 1) return 'Just now';
+            if (minutes < 60) return `${minutes} min ago`;
+            if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+            return `${days} day${days > 1 ? 's' : ''} ago`;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function toggleNotifications() {
+            const dropdown = document.getElementById('notificationDropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('hidden');
+                if (!dropdown.classList.contains('hidden')) {
+                    renderNotificationList();
+                }
+            }
+        }
+        
+        // Close notification dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('notificationDropdown');
+            const bellButton = event.target.closest('[onclick="toggleNotifications()"]');
+            if (dropdown && !bellButton && !dropdown.contains(event.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+        
+        // ========== WEB SOCKET FUNCTIONS ==========
+        
         let ws = null;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
         
         function connectWebSocket() {
             if (ws && ws.readyState === WebSocket.OPEN) return;
@@ -117,44 +438,101 @@
             
             ws.onopen = function() {
                 console.log('WebSocket connected');
+                reconnectAttempts = 0;
+                
+                // Show connection status toast
+                showToastNotification('Connected', 'Real-time updates active', 'success', 2000);
             };
             
             ws.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                showNotification(data.title, data.body);
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('WebSocket message:', data);
+                    
+                    let title = data.title || getDefaultTitle(data.type || data.status);
+                    let message = data.message || data.body || getDefaultMessage(data.type || data.status);
+                    let notificationType = getNotificationTypeFromData(data);
+                    
+                    // Show browser notification
+                    showBrowserNotification(title, message);
+                    
+                    // Show toast notification
+                    showToastNotification(title, message, notificationType);
+                    
+                    // Add to notification list
+                    addToNotificationList(title, message, notificationType);
+                    
+                    // Trigger custom event for page-specific handling
+                    const customEvent = new CustomEvent('websocketMessage', { detail: data });
+                    document.dispatchEvent(customEvent);
+                    
+                } catch (error) {
+                    console.error('Error processing WebSocket message:', error);
+                }
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                showToastNotification('Connection Error', 'Unable to connect to real-time service', 'error', 3000);
             };
             
             ws.onclose = function() {
-                console.log('WebSocket disconnected, reconnecting...');
-                setTimeout(connectWebSocket, 3000);
+                console.log('WebSocket disconnected');
+                
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    const delay = Math.min(3000 * reconnectAttempts, 30000);
+                    console.log(`Reconnecting in ${delay/1000} seconds... (Attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+                    
+                    setTimeout(() => {
+                        if (!ws || ws.readyState === WebSocket.CLOSED) {
+                            connectWebSocket();
+                        }
+                    }, delay);
+                } else {
+                    console.log('Max reconnection attempts reached');
+                    showToastNotification('Disconnected', 'Real-time updates unavailable. Please refresh the page.', 'warning', 5000);
+                }
             };
         }
         
-        function showNotification(title, body) {
-            if (Notification.permission === 'granted') {
-                new Notification(title, { body });
+        function getDefaultTitle(type) {
+            const titles = {
+                'accepted': 'Driver Accepted',
+                'arrived': 'Driver Has Arrived',
+                'ongoing': 'Trip Started',
+                'completed': 'Trip Completed',
+                'cancelled': 'Trip Cancelled',
+                'ride_request': 'New Ride Request'
+            };
+            return titles[type] || 'Update';
+        }
+        
+        function getDefaultMessage(type) {
+            const messages = {
+                'accepted': 'A driver has accepted your ride request',
+                'arrived': 'Your driver has arrived at the pickup location',
+                'ongoing': 'Your trip has started',
+                'completed': 'Your trip has been completed',
+                'cancelled': 'Your trip has been cancelled',
+                'ride_request': 'A new ride request is available'
+            };
+            return messages[type] || 'Your ride status has been updated';
+        }
+        
+        function getNotificationTypeFromData(data) {
+            if (data.type === 'status_update') {
+                const status = data.status;
+                if (status === 'completed' || status === 'accepted') return 'success';
+                if (status === 'cancelled') return 'error';
+                if (status === 'ongoing') return 'ride';
+                return 'info';
             }
-            
-            const toast = document.createElement('div');
-            toast.className = 'fixed top-4 right-4 bg-white rounded-lg shadow-lg p-4 z-50 animate-slide-in';
-            toast.innerHTML = `
-                <div class="flex items-start">
-                    <div class="flex-1">
-                        <h4 class="font-semibold">${title}</h4>
-                        <p class="text-sm text-gray-600">${body}</p>
-                    </div>
-                    <button onclick="this.parentElement.parentElement.remove()" class="text-gray-400">✕</button>
-                </div>
-            `;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 5000);
+            return data.type === 'error' ? 'error' : 'info';
         }
         
-        if ('Notification' in window && Notification.permission !== 'granted') {
-            Notification.requestPermission();
-        }
+        // ========== PWA INSTALLATION ==========
         
-        // PWA Installation
         let deferredPrompt;
         
         window.addEventListener('beforeinstallprompt', (e) => {
@@ -169,6 +547,7 @@
                 deferredPrompt.userChoice.then((choiceResult) => {
                     if (choiceResult.outcome === 'accepted') {
                         console.log('User accepted install');
+                        showToastNotification('Installation Started', 'Installing UniRide app...', 'success');
                     }
                     deferredPrompt = null;
                     document.getElementById('installPrompt').classList.add('hidden');
@@ -180,11 +559,14 @@
             document.getElementById('installPrompt').classList.add('hidden');
         }
         
+        // ========== UI FUNCTIONS ==========
+        
         function toggleDropdown() {
             const dropdown = document.getElementById('userDropdown');
-            dropdown.classList.toggle('hidden');
+            if (dropdown) dropdown.classList.toggle('hidden');
         }
         
+        // Close dropdown when clicking outside
         document.addEventListener('click', function(event) {
             const dropdown = document.getElementById('userDropdown');
             if (dropdown && !event.target.closest('.relative')) {
@@ -192,10 +574,17 @@
             }
         });
         
+        // ========== INITIALIZATION ==========
+        
         {% if user.is_authenticated %}
             const currentUserId = {{ user.id }};
             connectWebSocket();
         {% endif %}
+        
+        // Export functions to global scope for use in other scripts
+        window.showToastNotification = showToastNotification;
+        window.showBrowserNotification = showBrowserNotification;
+        window.addToNotificationList = addToNotificationList;
     </script>
     
     {% block extra_js %}{% endblock %}

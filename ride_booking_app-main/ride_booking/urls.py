@@ -32,7 +32,7 @@ urlpatterns = [
     # Include app URLs
     path('', include('bookings.urls')),  # This includes all booking app URLs
     path('', include('users.urls')),  # If you have users app URLs
-    # path('vehicles/', include('vehicles.urls')),  # If you have vehicles app URLs
+    path('vehicles/', include('vehicles.urls')),  # If you have vehicles app URLs
 ]
 
 # Serve media files in development

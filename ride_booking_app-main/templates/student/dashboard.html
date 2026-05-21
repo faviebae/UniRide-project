@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Student Dashboard{% endblock %}
+{% block title %}Student Dashboard - UniRide{% endblock %}
 
 {% block content %}
 <div class="max-w-7xl mx-auto">
@@ -10,13 +10,13 @@
         <div class="bg-white rounded-lg shadow-lg p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-gray-600 text-sm">Wallet Balance</p>
-                    <p class="text-2xl font-bold text-blue-600">₦{{ user.wallet_balance|floatformat:2 }}</p>
+                    <p class="text-gray-600 text-sm">Welcome, {{ user.first_name }}!</p>
+                    <p class="text-2xl font-bold text-blue-600">Book a ride now</p>
                 </div>
                 <i class="fas fa-wallet text-3xl text-blue-600"></i>
             </div>
             <button onclick="topupWallet()" class="mt-4 text-sm text-blue-600 hover:text-blue-700">
-                <i class="fas fa-plus-circle"></i> Top Up
+                <i class="fas fa-plus-circle"></i> 
             </button>
         </div>
         
@@ -24,7 +24,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-gray-600 text-sm">Total Trips</p>
-                    <p class="text-2xl font-bold text-green-600">{{ total_trips }}</p>
+                    <p class="text-2xl font-bold text-green-600">{{ total_trips|default:"0" }}</p>
                 </div>
                 <i class="fas fa-car text-3xl text-green-600"></i>
             </div>
@@ -34,7 +34,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-gray-600 text-sm">Total Spent</p>
-                    <p class="text-2xl font-bold text-purple-600">₦{{ total_spent|floatformat:2 }}</p>
+                    <p class="text-2xl font-bold text-purple-600">₦{{ total_spent|floatformat:2|default:"0" }}</p>
                 </div>
                 <i class="fas fa-chart-line text-3xl text-purple-600"></i>
             </div>
@@ -43,11 +43,9 @@
     
     <!-- Active Trip Section -->
     {% if active_trip %}
-    <div class="bg-white rounded-lg shadow-lg p-6 mb-8" id="activeTripSection">
+    <div id="activeTripSection" class="bg-white rounded-lg shadow-lg p-6 mb-8">
         <h2 class="text-2xl font-bold mb-4">Active Trip</h2>
-        <div id="tripDetails">
-            <!-- Trip details will be updated via JavaScript -->
-        </div>
+        <div id="activeTripDetails"></div>
     </div>
     {% endif %}
     
@@ -57,10 +55,10 @@
         
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Booking Form -->
-            <div>
+            <div id="bookingForm" class="bg-white rounded-lg shadow-lg p-6 mb-8">
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Pickup Location
+                        <i class="fas fa-circle-dot text-green-500 mr-1"></i> Pickup Location
                     </label>
                     <input type="text" id="pickupInput" 
                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -69,7 +67,7 @@
                 
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Destination
+                        <i class="fas fa-flag-checkered text-red-500 mr-1"></i> Destination
                     </label>
                     <input type="text" id="destinationInput" 
                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -78,47 +76,56 @@
                 
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Ride Type
+                        <i class="fas fa-car-side mr-1"></i> Ride Type
                     </label>
                     <select id="rideType" class="w-full border border-gray-300 rounded-lg px-4 py-2">
-                        <option value="standard">Standard (4 seats)</option>
-                        <option value="premium">Premium (4 seats)</option>
-                        <option value="suv">SUV (6 seats)</option>
+                        <option value="standard">🚗 Standard (4 seats)</option>
                     </select>
                 </div>
                 
-                <div id="fareEstimate" class="hidden mb-4 p-4 bg-gray-50 rounded-lg">
-                    <p class="font-semibold">Fare Estimate:</p>
-                    <p class="text-2xl font-bold text-blue-600">₦<span id="estimatedFare">0</span></p>
-                    <p class="text-sm text-gray-600">Distance: <span id="distance"></span> km</p>
-                    <p class="text-sm text-gray-600">Duration: <span id="duration"></span> mins</p>
+                <div id="fareEstimate" class="hidden mb-4 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg">
+                    <p class="font-semibold text-gray-700">💰 Fare Estimate:</p>
+                    <p class="text-3xl font-bold text-blue-600">₦<span id="estimatedFare">0</span></p>
+                    <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
+                        <p class="text-gray-600">📏 Distance: <span id="distance">0</span> km</p>
+                        <p class="text-gray-600">⏱️ Duration: <span id="duration">0</span> mins</p>
+                    </div>
                 </div>
                 
                 <button onclick="calculateFare()" 
-                        class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 mb-2">
-                    Calculate Fare
+                        class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 mb-2 transition">
+                    <i class="fas fa-calculator mr-2"></i> Calculate Fare
                 </button>
                 
                 <button onclick="bookRide()" 
                         id="bookBtn"
-                        class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                        class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
                         disabled>
-                    Book Now
+                    <i class="fas fa-bookmark mr-2"></i> Book Now
                 </button>
             </div>
             
             <!-- Map -->
             <div>
                 <div id="map" class="w-full h-96 rounded-lg shadow"></div>
+                <div class="mt-2 text-center text-sm text-gray-500">
+                    <i class="fas fa-map-marker-alt text-green-500"></i> Green: Pickup | 
+                    <i class="fas fa-map-marker-alt text-red-500"></i> Red: Destination
+                </div>
             </div>
         </div>
     </div>
     
     <!-- Nearby Drivers -->
     <div class="bg-white rounded-lg shadow-lg p-6">
-        <h3 class="text-xl font-bold mb-4">Nearby Drivers</h3>
+        <h3 class="text-xl font-bold mb-4">
+            <i class="fas fa-users mr-2 text-blue-600"></i> Nearby Drivers
+        </h3>
         <div id="nearbyDrivers" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <!-- Drivers will be loaded here -->
+            <div class="col-span-full text-center text-gray-500 py-8">
+                <i class="fas fa-spinner fa-spin text-2xl"></i>
+                <p class="mt-2">Looking for nearby drivers...</p>
+            </div>
         </div>
     </div>
 </div>
@@ -130,17 +137,1299 @@
             <h3 class="text-lg font-bold">Top Up Wallet</h3>
             <button onclick="closeTopupModal()" class="text-gray-400 hover:text-gray-600">✕</button>
         </div>
-        <input type="number" id="topupAmount" placeholder="Amount (₦)" 
+        <input type="number" id="topupAmount" placeholder="Amount (₦)" min="100" step="100"
                class="w-full border border-gray-300 rounded-lg px-4 py-2 mb-4">
         <button onclick="processTopup()" 
                 class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
-            Top Up
+            Process Payment
         </button>
     </div>
 </div>
+
+<script>
+    let map;
+    let pickupAutocomplete;
+    let destinationAutocomplete;
+    let pickupLocation = null;
+    let destinationLocation = null;
+    let directionsRenderer;
+    let directionsService;
+    let pickupMarker = null;
+    let destinationMarker = null;
+
+    // Initialize Google Map
+    function initMap() {
+        console.log('Initializing map...');
+        
+        // Check if Google Maps is loaded
+        if (typeof google === 'undefined') {
+            console.error('Google Maps not loaded');
+            document.getElementById('map').innerHTML = `
+                <div class="flex items-center justify-center h-full bg-gray-100 rounded-lg">
+                    <div class="text-center p-4">
+                        <i class="fas fa-exclamation-triangle text-red-500 text-3xl mb-2"></i>
+                        <p class="text-gray-600">Google Maps failed to load</p>
+                        <p class="text-sm text-gray-500">Please check your API key or refresh the page</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+        
+        // Default center (Lagos, Nigeria)
+        const defaultCenter = { lat: 6.524379, lng: 3.379206 };
+        
+        try {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: defaultCenter,
+                zoom: 13,
+                zoomControl: true,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: true,
+                styles: [
+                    {
+                        featureType: 'poi',
+                        elementType: 'labels',
+                        stylers: [{ visibility: 'off' }]
+                    }
+                ]
+            });
+            
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer({
+                map: map,
+                suppressMarkers: true
+            });
+            
+            // Initialize Autocomplete
+            const pickupInput = document.getElementById('pickupInput');
+            const destinationInput = document.getElementById('destinationInput');
+            
+            if (pickupInput) {
+                pickupAutocomplete = new google.maps.places.Autocomplete(pickupInput, {
+                    types: ['geocode', 'establishment'],
+                    componentRestrictions: { country: 'ng' }
+                });
+                pickupAutocomplete.addListener('place_changed', onPickupChange);
+            }
+            
+            if (destinationInput) {
+                destinationAutocomplete = new google.maps.places.Autocomplete(destinationInput, {
+                    types: ['geocode', 'establishment'],
+                    componentRestrictions: { country: 'ng' }
+                });
+                destinationAutocomplete.addListener('place_changed', onDestinationChange);
+            }
+            
+            // Try to get user's current location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const userLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        map.setCenter(userLocation);
+                        map.setZoom(15);
+                        
+                        // Add a marker for current location
+                        new google.maps.Marker({
+                            position: userLocation,
+                            map: map,
+                            icon: {
+                                path: google.maps.SymbolPath.CIRCLE,
+                                scale: 8,
+                                fillColor: '#4285F4',
+                                fillOpacity: 1,
+                                strokeWeight: 2,
+                                strokeColor: '#FFFFFF'
+                            },
+                            title: 'Your Location'
+                        });
+                        
+                        // Reverse geocode to get address
+                        const geocoder = new google.maps.Geocoder();
+                        geocoder.geocode({ location: userLocation }, function(results, status) {
+                            if (status === 'OK' && results[0] && pickupInput) {
+                                pickupInput.value = results[0].formatted_address;
+                                pickupLocation = {
+                                    lat: userLocation.lat,
+                                    lng: userLocation.lng,
+                                    address: results[0].formatted_address
+                                };
+                                addMarker('pickup', pickupLocation);
+                            }
+                        });
+                    },
+                    function(error) {
+                        console.log('Geolocation error:', error);
+                        showToast('Location Error', 'Unable to get your location. Please enter manually.', 'warning');
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    }
+                );
+            }
+            
+            console.log('Map initialized successfully');
+            
+        } catch (error) {
+            console.error('Error initializing map:', error);
+            document.getElementById('map').innerHTML = `
+                <div class="flex items-center justify-center h-full bg-gray-100 rounded-lg">
+                    <div class="text-center p-4">
+                        <i class="fas fa-exclamation-triangle text-red-500 text-3xl mb-2"></i>
+                        <p class="text-gray-600">Error loading map</p>
+                        <p class="text-sm text-gray-500">${error.message}</p>
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    function onPickupChange() {
+        const place = pickupAutocomplete.getPlace();
+        if (place && place.geometry) {
+            pickupLocation = {
+                lat: place.geometry.location.lat(),
+                lng: place.geometry.location.lng(),
+                address: place.formatted_address || document.getElementById('pickupInput').value
+            };
+            addMarker('pickup', pickupLocation);
+            map.setCenter(place.geometry.location);
+            map.setZoom(15);
+            
+            // Clear previous route
+            if (directionsRenderer) {
+                directionsRenderer.setDirections({ routes: [] });
+            }
+            
+            calculateFareIfBothSet();
+        }
+    }
+    
+    function onDestinationChange() {
+        const place = destinationAutocomplete.getPlace();
+        if (place && place.geometry) {
+            destinationLocation = {
+                lat: place.geometry.location.lat(),
+                lng: place.geometry.location.lng(),
+                address: place.formatted_address || document.getElementById('destinationInput').value
+            };
+            addMarker('destination', destinationLocation);
+            calculateFareIfBothSet();
+        }
+    }
+    
+    function addMarker(type, location) {
+        const icons = {
+            pickup: {
+                url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+                scaledSize: new google.maps.Size(40, 40)
+            },
+            destination: {
+                url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                scaledSize: new google.maps.Size(40, 40)
+            }
+        };
+        
+        if (type === 'pickup' && pickupMarker) {
+            pickupMarker.setMap(null);
+        }
+        if (type === 'destination' && destinationMarker) {
+            destinationMarker.setMap(null);
+        }
+        
+        const marker = new google.maps.Marker({
+            position: { lat: parseFloat(location.lat), lng: parseFloat(location.lng) },
+            map: map,
+            icon: icons[type],
+            title: type === 'pickup' ? 'Pickup Location' : 'Destination',
+            animation: google.maps.Animation.DROP
+        });
+        
+        if (type === 'pickup') {
+            pickupMarker = marker;
+        } else {
+            destinationMarker = marker;
+        }
+        
+        // Fit bounds to show both markers if both exist
+        if (pickupLocation && destinationLocation) {
+            const bounds = new google.maps.LatLngBounds();
+            bounds.extend(new google.maps.LatLng(pickupLocation.lat, pickupLocation.lng));
+            bounds.extend(new google.maps.LatLng(destinationLocation.lat, destinationLocation.lng));
+            map.fitBounds(bounds);
+            map.setZoom(Math.min(map.getZoom(), 15));
+        }
+    }
+    
+    function calculateFareIfBothSet() {
+        if (pickupLocation && destinationLocation) {
+            calculateFare();
+        } else {
+            // Reset fare display
+            document.getElementById('fareEstimate').classList.add('hidden');
+            document.getElementById('bookBtn').disabled = true;
+        }
+    }
+    
+    function calculateFare() {
+        if (!pickupLocation || !destinationLocation) {
+            showToast('Please select both pickup and destination', 'warning');
+            return;
+        }
+        
+        showToast('Calculating fare...', 'info');
+        
+        const request = {
+            origin: new google.maps.LatLng(parseFloat(pickupLocation.lat), parseFloat(pickupLocation.lng)),
+            destination: new google.maps.LatLng(parseFloat(destinationLocation.lat), parseFloat(destinationLocation.lng)),
+            travelMode: google.maps.TravelMode.DRIVING
+        };
+        
+        directionsService.route(request, function(result, status) {
+            if (status === 'OK') {
+                directionsRenderer.setDirections(result);
+                
+                const distance = result.routes[0].legs[0].distance.value / 1000;
+                const duration = result.routes[0].legs[0].duration.value / 60;
+                const rideType = document.getElementById('rideType').value;
+                
+                let baseFare = 500;
+                let perKmRate = 150;
+                let perMinuteRate = 20;
+                
+                if (rideType === 'premium') {
+                    baseFare = 800;
+                    perKmRate = 200;
+                    perMinuteRate = 30;
+                } else if (rideType === 'suv') {
+                    baseFare = 1000;
+                    perKmRate = 250;
+                    perMinuteRate = 40;
+                }
+                
+                const serviceFee = 50;
+                const fare = baseFare + (distance * perKmRate) + (duration * perMinuteRate) + serviceFee;
+                
+                document.getElementById('estimatedFare').textContent = Math.round(fare);
+                document.getElementById('distance').textContent = distance.toFixed(2);
+                document.getElementById('duration').textContent = Math.round(duration);
+                document.getElementById('fareEstimate').classList.remove('hidden');
+                document.getElementById('bookBtn').disabled = false;
+                
+                // Fetch nearby drivers
+                fetchNearbyDrivers(pickupLocation.lat, pickupLocation.lng);
+                
+                showToast(`Estimated fare: ₦${Math.round(fare)}`, 'success');
+                
+            } else {
+                console.error('Directions request failed:', status);
+                showToast('Could not calculate route. Please try different locations.', 'error');
+            }
+        });
+    }
+    
+    // async function bookRide() {
+    //     if (!pickupLocation || !destinationLocation) {
+    //         showToast('Please select pickup and destination', 'warning');
+    //         return;
+    //     }
+        
+    //     const fare = parseFloat(document.getElementById('estimatedFare').textContent);
+    //     const distance = parseFloat(document.getElementById('distance').textContent);
+    //     const duration = parseFloat(document.getElementById('duration').textContent);
+        
+    //     const bookBtn = document.getElementById('bookBtn');
+    //     bookBtn.disabled = true;
+    //     bookBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Booking...';
+        
+    //     try {
+    //         const response = await fetch('/book/', {
+    //             method: 'POST',
+    //             headers: {
+    //                 'Content-Type': 'application/json',
+    //                 'X-CSRFToken': getCookie('csrftoken')
+    //             },
+    //             body: JSON.stringify({
+    //                 pickup_address: pickupLocation.address,
+    //                 pickup_latitude: pickupLocation.lat,
+    //                 pickup_longitude: pickupLocation.lng,
+    //                 dropoff_address: destinationLocation.address,
+    //                 dropoff_latitude: destinationLocation.lat,
+    //                 dropoff_longitude: destinationLocation.lng,
+    //                 distance_km: distance,
+    //                 duration_minutes: duration
+    //             })
+    //         });
+            
+    //         const data = await response.json();
+            
+    //         if (response.ok) {
+    //             showToast('Ride booked successfully! Finding a driver...', 'success');
+    //             document.getElementById('fareEstimate').classList.add('hidden');
+    //             startTripTracking(data.trip_id);
+    //             // Refresh after 2 seconds
+    //             setTimeout(() => {
+    //                 window.location.reload();
+    //             }, 2000);
+    //         } else {
+    //             showToast(data.error || 'Failed to book ride', 'error');
+    //             bookBtn.disabled = false;
+    //             bookBtn.innerHTML = '<i class="fas fa-bookmark mr-2"></i> Book Now';
+    //         }
+    //     } catch (error) {
+    //         console.error('Booking error:', error);
+    //         showToast('Network error. Please try again.', 'error');
+    //         bookBtn.disabled = false;
+    //         bookBtn.innerHTML = '<i class="fas fa-bookmark mr-2"></i> Book Now';
+    //     }
+    // }
+
+    // async function bookRide() {
+    //     console.log('bookRide called');
+    //     console.log('pickupLocation:', pickupLocation);
+    //     console.log('destinationLocation:', destinationLocation);
+        
+    //     if (!pickupLocation || !destinationLocation) {
+    //         showToast('Please select pickup and destination', 'warning');
+    //         return;
+    //     }
+        
+    //     const fare = parseFloat(document.getElementById('estimatedFare').textContent);
+    //     const distance = parseFloat(document.getElementById('distance').textContent);
+    //     const duration = parseFloat(document.getElementById('duration').textContent);
+        
+    //     const bookBtn = document.getElementById('bookBtn');
+    //     bookBtn.disabled = true;
+    //     bookBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Booking...';
+        
+    //     const requestData = {
+    //         pickup_address: pickupLocation.address,
+    //         pickup_latitude: pickupLocation.lat,
+    //         pickup_longitude: pickupLocation.lng,
+    //         dropoff_address: destinationLocation.address,
+    //         dropoff_latitude: destinationLocation.lat,
+    //         dropoff_longitude: destinationLocation.lng,
+    //         distance_km: distance,
+    //         duration_minutes: duration
+    //     };
+        
+    //     console.log('Sending data:', requestData);
+        
+    //     try {
+    //         const response = await fetch('/api/book/', {
+    //             method: 'POST',
+    //             headers: {
+    //                 'Content-Type': 'application/json',
+    //                 'X-CSRFToken': getCookie('csrftoken')
+    //             },
+    //             body: JSON.stringify(requestData)
+    //         });
+            
+    //         console.log('Response status:', response.status);
+    //         const data = await response.json();
+    //         console.log('Response data:', data);
+            
+    //         if (response.ok) {
+    //             showToast('Ride booked successfully! Finding a driver...', 'success');
+    //             document.getElementById('fareEstimate').classList.add('hidden');
+    //             setTimeout(() => {
+    //                 window.location.reload();
+    //             }, 2000);
+    //         } else {
+    //             showToast(data.error || 'Failed to book ride', 'error');
+    //             bookBtn.disabled = false;
+    //             bookBtn.innerHTML = '<i class="fas fa-bookmark mr-2"></i> Book Now';
+    //         }
+    //     } catch (error) {
+    //         console.error('Booking error:', error);
+    //         showToast('Network error. Please try again.', 'error');
+    //         bookBtn.disabled = false;
+    //         bookBtn.innerHTML = '<i class="fas fa-bookmark mr-2"></i> Book Now';
+    //     }
+    // }
+
+
+    // async function bookRide() {
+    //     console.log('=== BOOK RIDE STARTED ===');
+        
+    //     if (!pickupLocation || !destinationLocation) {
+    //         showToast('Please select pickup and destination', 'warning');
+    //         return;
+    //     }
+        
+    //     // Get fare values
+    //     const fareElement = document.getElementById('estimatedFare');
+    //     const distanceElement = document.getElementById('distance');
+    //     const durationElement = document.getElementById('duration');
+        
+    //     if (!fareElement || !distanceElement || !durationElement) {
+    //         showToast('Please calculate fare first', 'warning');
+    //         return;
+    //     }
+        
+    //     const fare = parseFloat(fareElement.textContent);
+    //     const distance = parseFloat(distanceElement.textContent);
+    //     const duration = parseFloat(durationElement.textContent);
+        
+    //     console.log('Fare:', fare, 'Distance:', distance, 'Duration:', duration);
+        
+    //     const bookBtn = document.getElementById('bookBtn');
+    //     bookBtn.disabled = true;
+    //     bookBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Booking...';
+        
+    //     const requestData = {
+    //         pickup_address: pickupLocation.address,
+    //         pickup_latitude: parseFloat(pickupLocation.lat),
+    //         pickup_longitude: parseFloat(pickupLocation.lng),
+    //         dropoff_address: destinationLocation.address,
+    //         dropoff_latitude: parseFloat(destinationLocation.lat),
+    //         dropoff_longitude: parseFloat(destinationLocation.lng),
+    //         distance_km: distance,
+    //         duration_minutes: duration
+    //     };
+        
+    //     console.log('Request data:', requestData);
+        
+    //     // Get CSRF token
+    //     const csrftoken = getCookie('csrftoken');
+    //     console.log('CSRF Token found:', csrftoken ? 'Yes' : 'No');
+        
+    //     try {
+    //         const response = await fetch('/book/', {
+    //             method: 'POST',
+    //             headers: {
+    //                 'Content-Type': 'application/json',
+    //                 'X-CSRFToken': csrftoken,
+    //                 'X-Requested-With': 'XMLHttpRequest'
+    //             },
+    //             credentials: 'same-origin',
+    //             body: JSON.stringify(requestData)
+    //         });
+            
+    //         console.log('Response status:', response.status);
+            
+    //         const data = await response.json();
+    //         console.log('Response data:', data);
+            
+    //         if (response.ok && data.trip_id) {
+    //             showToast('Ride booked successfully! Finding a driver...', 'success');
+    //             document.getElementById('fareEstimate').classList.add('hidden');
+                
+    //             // Reset form
+    //             pickupLocation = null;
+    //             destinationLocation = null;
+    //             document.getElementById('pickupInput').value = '';
+    //             document.getElementById('destinationInput').value = '';
+                
+    //             // Redirect to dashboard or reload after 2 seconds
+    //             setTimeout(() => {
+    //                 window.location.href = '/student/dashboard/';
+    //             }, 2000);
+    //         } else {
+    //             const errorMsg = data.error || data.message || 'Failed to book ride';
+    //             showToast(errorMsg, 'error');
+    //             bookBtn.disabled = false;
+    //             bookBtn.innerHTML = '<i class="fas fa-bookmark mr-2"></i> Book Now';
+    //         }
+    //     } catch (error) {
+    //         console.error('Booking error:', error);
+    //         showToast('Network error. Please check your connection.', 'error');
+    //         bookBtn.disabled = false;
+    //         bookBtn.innerHTML = '<i class="fas fa-bookmark mr-2"></i> Book Now';
+    //     }
+    // }
+
+
+
+    // async function bookRide() {
+    //     if (!pickupLocation || !destinationLocation) {
+    //         showToast('Please select pickup and destination', 'warning');
+    //         return;
+    //     }
+        
+    //     const fare = parseFloat(document.getElementById('estimatedFare').textContent);
+    //     const distance = parseFloat(document.getElementById('distance').textContent);
+    //     const duration = parseFloat(document.getElementById('duration').textContent);
+        
+    //     const bookBtn = document.getElementById('bookBtn');
+    //     bookBtn.disabled = true;
+    //     bookBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Booking...';
+        
+    //     try {
+    //         const response = await fetch('/book/', {
+    //             method: 'POST',
+    //             headers: {
+    //                 'Content-Type': 'application/json',
+    //                 'X-CSRFToken': getCookie('csrftoken')
+    //             },
+    //             body: JSON.stringify({
+    //                 pickup_address: pickupLocation.address,
+    //                 pickup_latitude: pickupLocation.lat,
+    //                 pickup_longitude: pickupLocation.lng,
+    //                 dropoff_address: destinationLocation.address,
+    //                 dropoff_latitude: destinationLocation.lat,
+    //                 dropoff_longitude: destinationLocation.lng,
+    //                 distance_km: distance,
+    //                 duration_minutes: duration
+    //             })
+    //         });
+            
+    //         const data = await response.json();
+            
+    //         if (response.ok) {
+    //             showToast(data.message || 'Ride booked successfully!', 'success');
+                
+    //             // Clear the form
+    //             document.getElementById('fareEstimate').classList.add('hidden');
+    //             document.getElementById('pickupInput').value = '';
+    //             document.getElementById('destinationInput').value = '';
+    //             pickupLocation = null;
+    //             destinationLocation = null;
+                
+    //             // Refresh the page to show active trip
+    //             setTimeout(() => {
+    //                 window.location.reload();
+    //             }, 1500);
+    //         } else {
+    //             showToast(data.error || 'Failed to book ride', 'error');
+    //             bookBtn.disabled = false;
+    //             bookBtn.innerHTML = '<i class="fas fa-bookmark mr-2"></i> Book Now';
+    //         }
+    //     } catch (error) {
+    //         console.error('Booking error:', error);
+    //         showToast('Network error. Please try again.', 'error');
+    //         bookBtn.disabled = false;
+    //         bookBtn.innerHTML = '<i class="fas fa-bookmark mr-2"></i> Book Now';
+    //     }
+    // }
+
+
+    async function bookRide() {
+        if (!pickupLocation || !destinationLocation) {
+            showToast('Please select pickup and destination', 'warning');
+            return;
+        }
+        
+        const fare = parseFloat(document.getElementById('estimatedFare').textContent);
+        const distance = parseFloat(document.getElementById('distance').textContent);
+        const duration = parseFloat(document.getElementById('duration').textContent);
+        
+        const bookBtn = document.getElementById('bookBtn');
+        bookBtn.disabled = true;
+        bookBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Booking...';
+        
+        try {
+            const response = await fetch('/book/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    pickup_address: pickupLocation.address,
+                    pickup_latitude: pickupLocation.lat,
+                    pickup_longitude: pickupLocation.lng,
+                    dropoff_address: destinationLocation.address,
+                    dropoff_latitude: destinationLocation.lat,
+                    dropoff_longitude: destinationLocation.lng,
+                    distance_km: distance,
+                    duration_minutes: duration
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                showToast('Ride booked successfully! Waiting for driver...', 'success');
+                // Reset form
+                document.getElementById('fareEstimate').classList.add('hidden');
+                document.getElementById('pickupInput').value = '';
+                document.getElementById('destinationInput').value = '';
+                
+                // Check for active trip
+                setTimeout(() => {
+                    checkActiveTrip();
+                }, 1000);
+            } else {
+                showToast(data.error || 'Failed to book ride', 'error');
+                bookBtn.disabled = false;
+                bookBtn.innerHTML = '<i class="fas fa-bookmark mr-2"></i> Book Now';
+            }
+        } catch (error) {
+            console.error('Booking error:', error);
+            showToast('Network error. Please try again.', 'error');
+            bookBtn.disabled = false;
+            bookBtn.innerHTML = '<i class="fas fa-bookmark mr-2"></i> Book Now';
+        }
+    }
+    
+    function startTripTracking(tripId) {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}/ws/trip/${tripId}/`);
+        
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.type === 'status_update') {
+                updateActiveTripDisplay(data.status);
+            }
+        };
+    }
+    
+    async function fetchNearbyDrivers(lat, lng) {
+        try {
+            const response = await fetch(`/nearby-drivers/?lat=${lat}&lng=${lng}`);
+            const data = await response.json();
+            
+            const container = document.getElementById('nearbyDrivers');
+            if (data.drivers && data.drivers.length > 0) {
+                container.innerHTML = data.drivers.map(driver => `
+                    <div class="border rounded-lg p-4 hover:shadow-md transition">
+                        <div class="flex items-center mb-3">
+                            <div class="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white text-lg font-bold mr-3">
+                                ${driver.name ? driver.name.charAt(0) : 'D'}
+                            </div>
+                            <div>
+                                <p class="font-medium">${driver.name || 'Driver'}</p>
+                                <p class="text-sm text-yellow-600">★ ${driver.rating || 'New'}</p>
+                            </div>
+                        </div>
+                        ${driver.vehicle ? `
+                            <p class="text-sm text-gray-600">
+                                <i class="fas fa-car mr-1"></i> ${driver.vehicle.make || ''} ${driver.vehicle.model || ''}
+                            </p>
+                            <p class="text-sm text-gray-600">
+                                <i class="fas fa-palette mr-1"></i> ${driver.vehicle.color || ''}
+                            </p>
+                        ` : ''}
+                        <p class="text-xs text-gray-500 mt-2">
+                            <i class="fas fa-map-marker-alt mr-1"></i> ${driver.distance_km || '~'} km away
+                        </p>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = `
+                    <div class="col-span-full text-center text-gray-500 py-8">
+                        <i class="fas fa-car-side text-4xl mb-2"></i>
+                        <p>No nearby drivers available</p>
+                        <p class="text-sm">Please try again later</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error fetching drivers:', error);
+        }
+    }
+
+
+    // Real-time tracking variables
+    let trackingWebSocket = null;
+    let driverMarker = null;
+    let driverPath = [];  // Store path for drawing route
+    let driverPolyline = null;
+    let trackingInterval = null;
+
+    function startRealTimeTracking(tripId) {
+        console.log('Starting real-time tracking for trip:', tripId);
+        
+        // Close existing connection if any
+        if (trackingWebSocket) {
+            trackingWebSocket.close();
+        }
+        
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/trip/${tripId}/`;
+        
+        trackingWebSocket = new WebSocket(wsUrl);
+        
+        trackingWebSocket.onopen = function() {
+            console.log('Tracking WebSocket connected');
+            showToast('Tracking connected', 'success', 2000);
+        };
+        
+        trackingWebSocket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            console.log('Tracking update:', data);
+            
+            if (data.type === 'driver_location') {
+                updateDriverLocationOnMap(data.latitude, data.longitude, data.heading);
+            } else if (data.type === 'status_update') {
+                updateTripStatusDisplay(data.status, data.message);
+            }
+        };
+        
+        trackingWebSocket.onclose = function() {
+            console.log('Tracking WebSocket disconnected');
+            // Try to reconnect after 3 seconds
+            setTimeout(() => {
+                if (currentTripId) {
+                    startRealTimeTracking(currentTripId);
+                }
+            }, 3000);
+        };
+        
+        trackingWebSocket.onerror = function(error) {
+            console.error('Tracking WebSocket error:', error);
+        };
+    }
+
+    function updateDriverLocationOnMap(lat, lng, heading) {
+        if (!map) return;
+        
+        const driverPosition = { lat: parseFloat(lat), lng: parseFloat(lng) };
+        
+        // Remove existing driver marker
+        if (driverMarker) {
+            driverMarker.setMap(null);
+        }
+        
+        // Create custom driver marker with car icon
+        const carIcon = {
+            url: heading ? getCarIconForHeading(heading) : 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+            scaledSize: new google.maps.Size(40, 40),
+            origin: new google.maps.Point(0, 0),
+            anchor: new google.maps.Point(20, 20)
+        };
+        
+        driverMarker = new google.maps.Marker({
+            position: driverPosition,
+            map: map,
+            icon: carIcon,
+            title: 'Driver Location',
+            animation: google.maps.Animation.DROP
+        });
+        
+        // Add bounce effect for first few updates
+        if (!driverPath.length) {
+            driverMarker.setAnimation(google.maps.Animation.BOUNCE);
+            setTimeout(() => driverMarker.setAnimation(null), 2000);
+        }
+        
+        // Store path for drawing route
+        driverPath.push(driverPosition);
+        
+        // Draw polyline of driver's path
+        if (driverPolyline) {
+            driverPolyline.setMap(null);
+        }
+        driverPolyline = new google.maps.Polyline({
+            path: driverPath,
+            geodesic: true,
+            strokeColor: '#4285F4',
+            strokeOpacity: 0.7,
+            strokeWeight: 3
+        });
+        driverPolyline.setMap(map);
+        
+        // Center map on driver location if not too zoomed out
+        if (map.getZoom() > 12) {
+            map.setCenter(driverPosition);
+        }
+        
+        // Update ETA estimate if we have both pickup and driver location
+        updateETA(driverPosition);
+    }
+
+    function getCarIconForHeading(heading) {
+        // You can use different car icons based on direction
+        // For now, use a simple car icon URL
+        return 'https://maps.google.com/mapfiles/kml/paddle/red-circle.png';
+    }
+
+    function updateETA(driverPosition) {
+        if (!pickupLocation) return;
+        
+        // Calculate distance between driver and pickup
+        const distance = google.maps.geometry.spherical.computeDistanceBetween(
+            new google.maps.LatLng(driverPosition.lat, driverPosition.lng),
+            new google.maps.LatLng(pickupLocation.lat, pickupLocation.lng)
+        ) / 1000; // Convert to km
+        
+        const etaMinutes = Math.ceil(distance / 0.5); // Assuming 30km/h average speed
+        
+        const etaElement = document.getElementById('driverETA');
+        if (etaElement) {
+            etaElement.innerHTML = `Driver ETA: ~${etaMinutes} minutes`;
+        }
+    }
+
+    function updateTripStatusDisplay(status, message) {
+        const statusElement = document.getElementById('tripStatus');
+        if (statusElement) {
+            const statusConfig = {
+                'accepted': { text: 'Driver is on the way!', color: 'blue', icon: 'fa-car' },
+                'arrived': { text: 'Driver has arrived!', color: 'green', icon: 'fa-check-circle' },
+                'ongoing': { text: 'Trip in progress', color: 'purple', icon: 'fa-road' },
+                'completed': { text: 'Trip completed!', color: 'gray', icon: 'fa-flag-checkered' }
+            };
+            
+            const config = statusConfig[status] || { text: status, color: 'gray', icon: 'fa-info' };
+            
+            statusElement.innerHTML = `
+                <div class="p-3 bg-${config.color}-50 rounded-lg">
+                    <i class="fas ${config.icon} text-${config.color}-600 mr-2"></i>
+                    <span class="font-semibold">${config.text}</span>
+                    ${message ? `<p class="text-sm mt-1">${message}</p>` : ''}
+                </div>
+            `;
+            
+            // Show arrival notification
+            if (status === 'arrived') {
+                showToast('Driver has arrived!', 'success');
+                playSound('arrival');
+            }
+        }
+    }
+
+    function playSound(type) {
+        // Optional: play notification sound
+        const audio = new Audio('/static/sounds/notification.mp3');
+        audio.play().catch(e => console.log('Sound play failed:', e));
+    }
+    
+    function updateActiveTripDisplay(status) {
+        const section = document.getElementById('activeTripSection');
+        const detailsDiv = document.getElementById('activeTripDetails');
+        
+        if (section && detailsDiv) {
+            section.classList.remove('hidden');
+            const statusMessages = {
+                'searching': '🔍 Looking for a driver...',
+                'accepted': '✅ Driver assigned! They are on their way.',
+                'arrived': '📍 Driver has arrived at your location!',
+                'ongoing': '🚗 Trip in progress!',
+                'completed': '🏁 Trip completed! Thank you for riding with us.'
+            };
+            detailsDiv.innerHTML = `
+                <div class="p-4 bg-blue-50 rounded-lg">
+                    <p class="font-semibold">Status: ${statusMessages[status] || status}</p>
+                    ${status === 'accepted' ? '<div class="mt-2"><i class="fas fa-spinner fa-spin"></i> Tracking driver location...</div>' : ''}
+                </div>
+            `;
+        }
+    }
+    
+    function topupWallet() {
+        document.getElementById('topupModal').classList.remove('hidden');
+    }
+    
+    function closeTopupModal() {
+        document.getElementById('topupModal').classList.add('hidden');
+        document.getElementById('topupAmount').value = '';
+    }
+    
+    async function processTopup() {
+        const amount = document.getElementById('topupAmount').value;
+        if (!amount || amount < 100) {
+            showToast('Please enter a valid amount (minimum ₦100)', 'warning');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/student/topup/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ amount: parseFloat(amount) })
+            });
+            
+            if (response.ok) {
+                showToast('Wallet topped up successfully!', 'success');
+                closeTopupModal();
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                const error = await response.json();
+                showToast(error.message || 'Top up failed. Please try again.', 'error');
+            }
+        } catch (error) {
+            console.error('Topup error:', error);
+            showToast('Network error. Please try again.', 'error');
+        }
+    }
+    
+    function showToast(message, type = 'info') {
+        if (window.showToastNotification) {
+            window.showToastNotification('Notification', message, type);
+        } else {
+            console.log(`${type}: ${message}`);
+            // Fallback alert for debugging
+            if (type === 'error') {
+                alert(message);
+            }
+        }
+    }
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+
+    // async function checkActiveTrip() {
+    //     try {
+    //         const response = await fetch('/student/active-trip/');
+    //         if (response.ok) {
+    //             const trip = await response.json();
+    //             if (trip && trip.id) {
+    //                 displayActiveTrip(trip);
+    //             }
+    //         }
+    //     } catch (error) {
+    //         console.error('Error checking active trip:', error);
+    //     }
+    // }
+
+    function showActiveTrip(trip) {
+        // Hide booking form, show active trip section
+        document.getElementById('bookingForm').classList.add('hidden');
+        document.getElementById('activeTripSection').classList.remove('hidden');
+        
+        const statusMessages = {
+            'accepted': '🚗 Driver assigned! Heading to your location...',
+            'arrived': '📍 Driver has arrived!',
+            'ongoing': '🏃 Trip in progress!',
+            'completed': '✅ Trip completed!'
+        };
+        
+        let driverHtml = '<div class="mt-4 p-3 bg-yellow-50 rounded-lg"><p class="text-yellow-700">⏳ Looking for a driver...</p></div>';
+        
+        if (trip.driver) {
+            driverHtml = `
+                <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <div class="flex items-center mb-3">
+                        <div class="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold mr-3">
+                            ${trip.driver.name.charAt(0)}
+                        </div>
+                        <div>
+                            <p class="font-bold text-lg">${trip.driver.name}</p>
+                            <p class="text-sm text-gray-600">⭐ ${trip.driver.rating || 'New'} • 📞 ${trip.driver.phone}</p>
+                        </div>
+                    </div>
+                    ${trip.status === 'arrived' ? '<p class="text-green-600 font-semibold"><i class="fas fa-check-circle"></i> Driver is waiting for you!</p>' : ''}
+                </div>
+            `;
+        }
+        
+        document.getElementById('activeTripDetails').innerHTML = `
+            <div class="space-y-4">
+                <div class="p-4 ${trip.status === 'arrived' ? 'bg-green-50' : 'bg-blue-50'} rounded-lg">
+                    <p class="font-semibold text-lg">Status: ${statusMessages[trip.status] || trip.status}</p>
+                </div>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-gray-600 text-sm">Pickup Location</p>
+                        <p class="font-medium">${trip.pickup_address}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600 text-sm">Destination</p>
+                        <p class="font-medium">${trip.dropoff_address}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600 text-sm">Fare</p>
+                        <p class="text-2xl font-bold text-blue-600">₦${trip.total_fare}</p>
+                    </div>
+                </div>
+                ${driverHtml}
+                ${trip.status === 'completed' ? '<button onclick="location.reload()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg">Book Another Ride</button>' : ''}
+            </div>
+        `;
+        if (trip.id) {
+            currentTripId = trip.id;
+            startRealTimeTracking(trip.id);
+            
+            // Add ETA display to the UI
+            const etaHtml = '<div id="driverETA" class="mt-2 text-sm text-gray-600"></div>';
+            document.getElementById('activeTripDetails').insertAdjacentHTML('beforeend', etaHtml);
+        }
+    }
+    let tripUpdateInterval = null;
+    let currentTripId = null;
+
+    // Check for active trip on page load
+    // async function checkActiveTrip() {
+    //     try {
+    //         const response = await fetch('/student/active-trip/');
+            
+    //         if (response.status === 404) {
+    //             // No active trip, show booking form
+    //             document.getElementById('bookingForm').classList.remove('hidden');
+    //             document.getElementById('activeTripSection').classList.add('hidden');
+    //             return;
+    //         }
+            
+    //         const trip = await response.json();
+            
+    //         if (trip && trip.id) {
+    //             currentTripId = trip.id;
+    //             showActiveTrip(trip);
+                
+    //             // Start polling for updates every 5 seconds
+    //             if (tripUpdateInterval) clearInterval(tripUpdateInterval);
+    //             tripUpdateInterval = setInterval(checkActiveTrip, 5000);
+    //         }
+    //     } catch (error) {
+    //         console.error('Error checking active trip:', error);
+    //     }
+    // }
+
+
+    async function checkActiveTrip() {
+        try {
+            const response = await fetch('/student/active-trip/');
+            
+            if (response.status === 404) {
+                // No active trip, show booking form and clear tracking
+                document.getElementById('bookingForm').classList.remove('hidden');
+                document.getElementById('activeTripSection').classList.add('hidden');
+                
+                // Clear tracking interval
+                if (trackingInterval) {
+                    clearInterval(trackingInterval);
+                    trackingInterval = null;
+                }
+                if (trackingWebSocket) {
+                    trackingWebSocket.close();
+                    trackingWebSocket = null;
+                }
+                return;
+            }
+            
+            const trip = await response.json();
+            
+            if (trip && trip.id) {
+                currentTripId = trip.id;
+                showActiveTrip(trip);
+                
+                // If trip is completed, show completion message and reload after delay
+                if (trip.status === 'completed') {
+                    showToast('Trip completed! Thank you for riding with us.', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                }
+            }
+        } catch (error) {
+            console.error('Error checking active trip:', error);
+        }
+    }
+
+    // function displayActiveTrip(trip) {
+    //     const activeTripSection = document.getElementById('activeTripSection');
+    //     const activeTripDetails = document.getElementById('activeTripDetails');
+        
+    //     if (activeTripSection && activeTripDetails) {
+    //         activeTripSection.classList.remove('hidden');
+            
+    //         const statusMessages = {
+    //             'searching': '🔍 Looking for a driver...',
+    //             'accepted': '✅ Driver assigned! They are on their way.',
+    //             'arrived': '📍 Driver has arrived!',
+    //             'ongoing': '🚗 Trip in progress!',
+    //             'completed': '🏁 Trip completed!'
+    //         };
+            
+    //         const driverInfo = trip.driver ? `
+    //             <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+    //                 <p class="font-semibold">Driver: ${trip.driver_name || 'Assigned'}</p>
+    //                 <p class="text-sm">Phone: ${trip.driver_phone || 'Loading...'}</p>
+    //             </div>
+    //         ` : '<p class="mt-4 text-yellow-600">Finding a driver for you...</p>';
+            
+    //         activeTripDetails.innerHTML = `
+    //             <div class="p-4 bg-blue-50 rounded-lg">
+    //                 <p class="font-semibold">Status: ${statusMessages[trip.status] || trip.status}</p>
+    //                 <div class="mt-2">
+    //                     <p><strong>Pickup:</strong> ${trip.pickup_address}</p>
+    //                     <p><strong>Destination:</strong> ${trip.dropoff_address}</p>
+    //                     <p><strong>Fare:</strong> ₦${trip.total_fare}</p>
+    //                 </div>
+    //                 ${driverInfo}
+    //             </div>
+    //         `;
+    //     }
+    // }
+
+    async function updateStudentStats() {
+        try {
+            const response = await fetch('/student/stats/');
+            const data = await response.json();
+            
+            // Update the stats display
+            document.getElementById('walletBalance').textContent = `₦${data.wallet_balance.toFixed(2)}`;
+            document.getElementById('totalTrips').textContent = data.total_trips;
+            document.getElementById('totalSpent').textContent = `₦${data.total_spent.toFixed(2)}`;
+            
+            // Handle active trip
+            const activeTripSection = document.getElementById('activeTripSection');
+            const bookingForm = document.getElementById('bookingForm');
+            
+            if (data.active_trip) {
+                bookingForm.classList.add('hidden');
+                activeTripSection.classList.remove('hidden');
+                displayActiveTrip(data.active_trip);
+                
+                // Start tracking if not already
+                if (!trackingWebSocket && data.active_trip.id) {
+                    startRealTimeTracking(data.active_trip.id);
+                }
+            } else {
+                bookingForm.classList.remove('hidden');
+                activeTripSection.classList.add('hidden');
+                if (trackingWebSocket) {
+                    trackingWebSocket.close();
+                    trackingWebSocket = null;
+                }
+            }
+        } catch (error) {
+            console.error('Error updating stats:', error);
+        }
+    }
+    
+    function displayActiveTrip(trip) {
+        const detailsDiv = document.getElementById('activeTripDetails');
+        
+        const statusMessages = {
+            'searching': '🔍 Looking for a driver...',
+            'accepted': '✅ Driver assigned! They are on their way.',
+            'arrived': '📍 Driver has arrived at your location!',
+            'ongoing': '🚗 Trip in progress!',
+            'completed': '🏁 Trip completed!'
+        };
+        
+        let driverHtml = '';
+        if (trip.driver_name) {
+            driverHtml = `
+                <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold mr-3">
+                            ${trip.driver_name.charAt(0)}
+                        </div>
+                        <div>
+                            <p class="font-bold text-lg">${trip.driver_name}</p>
+                            <p class="text-sm text-gray-600">📞 ${trip.driver_phone || 'Phone available when assigned'}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        detailsDiv.innerHTML = `
+            <div class="space-y-4">
+                <div class="p-4 bg-blue-50 rounded-lg">
+                    <p class="font-semibold">${statusMessages[trip.status] || trip.status}</p>
+                </div>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-gray-600 text-sm">Pickup Location</p>
+                        <p class="font-medium">${trip.pickup_address}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600 text-sm">Destination</p>
+                        <p class="font-medium">${trip.dropoff_address}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600 text-sm">Fare</p>
+                        <p class="text-2xl font-bold text-blue-600">₦${trip.total_fare}</p>
+                    </div>
+                </div>
+                ${driverHtml}
+            </div>
+        `;
+    }
+    
+    // Refresh stats every 10 seconds
+    let statsInterval = null;
+    
+    function startStatsRefresh() {
+        if (statsInterval) clearInterval(statsInterval);
+        statsInterval = setInterval(updateStudentStats, 10000);
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        updateStudentStats();
+        startStatsRefresh();
+        
+        // Also refresh on page visibility change (when tab becomes active)
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                updateStudentStats();
+            }
+        });
+    });
+    
+    // Clean up interval on page unload
+    window.addEventListener('beforeunload', function() {
+        if (statsInterval) clearInterval(statsInterval);
+    });
+
+    
+    // Make sure the map initializes when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        checkActiveTrip();
+
+        // Check if Google Maps API is loaded
+        if (typeof google !== 'undefined' && google.maps) {
+            setTimeout(initMap, 100);
+        } else {
+            console.log('Waiting for Google Maps to load...');
+            // Set up a callback for when Google Maps loads
+            window.initMapCallback = initMap;
+        }
+        
+        // Refresh nearby drivers every 30 seconds if pickup location exists
+        const interval = setInterval(() => {
+            if (pickupLocation) {
+                fetchNearbyDrivers(pickupLocation.lat, pickupLocation.lng);
+            }
+        }, 30000);
+        
+        // Cleanup interval on page unload
+        window.addEventListener('beforeunload', () => clearInterval(interval));
+    });
+    
+    // Fallback: if Google Maps takes too long, show error
+    setTimeout(function() {
+        if (typeof google === 'undefined' || !google.maps) {
+            const mapDiv = document.getElementById('map');
+            if (mapDiv && mapDiv.innerHTML === '') {
+                mapDiv.innerHTML = `
+                    <div class="flex items-center justify-center h-full bg-gray-100 rounded-lg">
+                        <div class="text-center p-4">
+                            <i class="fas fa-exclamation-triangle text-red-500 text-3xl mb-2"></i>
+                            <p class="text-gray-600 font-medium">Google Maps failed to load</p>
+                            <p class="text-sm text-gray-500 mt-1">Please check your internet connection and API key</p>
+                            <button onclick="location.reload()" class="mt-3 bg-blue-600 text-white px-4 py-1 rounded-lg text-sm">
+                                Refresh Page
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    }, 10000);
+</script>
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places"></script>
-<script src="{% static 'js/student.js' %}"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initMap" async defer></script>
 {% endblock %}

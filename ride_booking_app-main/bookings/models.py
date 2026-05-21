@@ -18,6 +18,7 @@ class Trip(models.Model):
         ('no_driver_found', 'No Driver Found'),
     ]
     
+    
     PAYMENT_METHODS = [
         ('wallet', 'Wallet Balance'),
         ('cash', 'Cash'),

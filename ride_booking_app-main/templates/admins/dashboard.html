@@ -1,0 +1,773 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Admin Dashboard - UniRide{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
+        <p class="text-gray-600">Monitor and track all rides in real-time</p>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-500 text-sm">Total Users</p>
+                    <p class="text-2xl font-bold text-blue-600">{{ total_users }}</p>
+                    <p class="text-xs text-gray-400">👨‍🎓 Students: {{ total_students }} | 🚗 Drivers: {{ total_drivers }}</p>
+                </div>
+                <i class="fas fa-users text-3xl text-blue-600"></i>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-500 text-sm">Total Trips</p>
+                    <p class="text-2xl font-bold text-green-600">{{ total_trips }}</p>
+                    <p class="text-xs text-gray-400">✅ Completed: {{ completed_trips }} | ❌ Cancelled: {{ cancelled_trips }}</p>
+                </div>
+                <i class="fas fa-car text-3xl text-green-600"></i>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-500 text-sm">Active Rides</p>
+                    <p class="text-2xl font-bold text-orange-600">{{ active_trips_count }}</p>
+                    <p class="text-xs text-gray-400">🔍 Searching: {{ searching_trips }}</p>
+                </div>
+                <i class="fas fa-play-circle text-3xl text-orange-600"></i>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-500 text-sm">Total Revenue</p>
+                    <p class="text-2xl font-bold text-purple-600">₦{{ total_revenue|floatformat:2 }}</p>
+                    <p class="text-xs text-gray-400">📅 Today: ₦{{ today_revenue|floatformat:2 }}</p>
+                </div>
+                <i class="fas fa-chart-line text-3xl text-purple-600"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Live Tracking Map -->
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-xl font-bold mb-4">
+            <i class="fas fa-map-marked-alt text-red-500 mr-2"></i> Live Trip Tracking
+        </h2>
+        <div id="liveMap" class="w-full h-96 rounded-lg shadow"></div>
+        <p class="text-sm text-gray-500 mt-2 text-center">
+            <i class="fas fa-circle text-green-500"></i> Pickup | 
+            <i class="fas fa-flag-checkered text-red-500"></i> Destination | 
+            <i class="fas fa-car text-blue-600"></i> Driver Location
+        </p>
+    </div>
+    
+    <!-- Active Trips Section -->
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-xl font-bold mb-4">
+            <i class="fas fa-play-circle text-green-600 mr-2"></i> Active Trips
+            <span class="text-sm bg-red-500 text-white px-2 py-1 rounded-full ml-2">{{ active_trips|length }}</span>
+        </h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trip ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Driver</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fare</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="activeTripsBody" class="bg-white divide-y divide-gray-200">
+                    {% for trip in active_trips %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{{ trip.id }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {{ trip.student.get_full_name }}<br>
+                            <span class="text-xs text-gray-400">{{ trip.student.phone_number }}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {% if trip.driver %}
+                                {{ trip.driver.get_full_name }}<br>
+                                <span class="text-xs text-gray-400">{{ trip.driver.phone_number }}</span>
+                            {% else %}
+                                <span class="text-yellow-600">Not assigned</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                {% if trip.status == 'accepted' %}bg-blue-100 text-blue-800
+                                {% elif trip.status == 'arrived' %}bg-green-100 text-green-800
+                                {% elif trip.status == 'ongoing' %}bg-purple-100 text-purple-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ trip.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">₦{{ trip.total_fare }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <button onclick="focusOnTrip({{ trip.id }})" class="text-blue-600 hover:text-blue-800 mr-3">
+                                <i class="fas fa-map-marker-alt"></i> Track
+                            </button>
+                            <button onclick="viewTripDetails({{ trip.id }})" class="text-gray-600 hover:text-gray-800">
+                                <i class="fas fa-info-circle"></i> Details
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                            <i class="fas fa-car-side text-4xl mb-2 block"></i>
+                            No active trips at the moment
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Recent Trips -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-xl font-bold mb-4">
+            <i class="fas fa-history text-gray-600 mr-2"></i> Recent Trips
+        </h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Driver</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pickup → Dropoff</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fare</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for trip in recent_trips %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ trip.requested_at|date:"M d, H:i" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {{ trip.student.get_full_name }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {{ trip.driver.get_full_name|default:"Not assigned" }}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
+                            {{ trip.pickup_address|truncatechars:30 }} → {{ trip.dropoff_address|truncatechars:30 }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">₦{{ trip.total_fare }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                {% if trip.status == 'completed' %}bg-green-100 text-green-800
+                                {% elif trip.status == 'cancelled_by_student' or trip.status == 'cancelled_by_driver' %}bg-red-100 text-red-800
+                                {% elif trip.status == 'ongoing' %}bg-purple-100 text-purple-800
+                                {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                {{ trip.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Trip Details Modal -->
+<div id="tripModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-lg bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold" id="modalTitle">Trip Details</h3>
+            <button onclick="closeTripModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        <div id="modalContent">
+            <div class="text-center py-8">
+                <i class="fas fa-spinner fa-spin text-2xl"></i>
+                <p>Loading...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- <script>
+    let map;
+    let markers = [];
+    let activeTripId = null;
+    let updateInterval = null;
+    
+    // Initialize map
+    function initMap() {
+        const defaultCenter = { lat: 9.146584, lng: 7.303846 };
+        
+        map = new google.maps.Map(document.getElementById('liveMap'), {
+            center: defaultCenter,
+            zoom: 12,
+            zoomControl: true,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: true
+        });
+        
+        // Load active trips
+        loadActiveTripsToMap();
+    }
+    
+    function loadActiveTripsToMap() {
+        // Clear existing markers
+        markers.forEach(marker => marker.setMap(null));
+        markers = [];
+        
+        // Get all active trips and add markers
+        const trips = {{ active_trips|safe }};
+        
+        trips.forEach(trip => {
+            // Add pickup marker
+            const pickupMarker = new google.maps.Marker({
+                position: { lat: parseFloat(trip.pickup_latitude), lng: parseFloat(trip.pickup_longitude) },
+                map: map,
+                icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+                title: `Trip #${trip.id} - Pickup`
+            });
+            
+            // Add dropoff marker
+            const dropoffMarker = new google.maps.Marker({
+                position: { lat: parseFloat(trip.dropoff_latitude), lng: parseFloat(trip.dropoff_longitude) },
+                map: map,
+                icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                title: `Trip #${trip.id} - Destination`
+            });
+            
+            markers.push(pickupMarker, dropoffMarker);
+            
+            // Add info window
+            const infoWindow = new google.maps.InfoWindow({
+                content: `
+                    <div class="p-2">
+                        <strong>Trip #${trip.id}</strong><br>
+                        Student: ${trip.student_name}<br>
+                        Status: ${trip.status_display}<br>
+                        Fare: ₦${trip.total_fare}
+                    </div>
+                `
+            });
+            
+            pickupMarker.addListener('click', () => infoWindow.open(map, pickupMarker));
+            dropoffMarker.addListener('click', () => infoWindow.open(map, dropoffMarker));
+            
+            // If driver has location, add driver marker
+            if (trip.driver && trip.driver.location) {
+                const driverMarker = new google.maps.Marker({
+                    position: { 
+                        lat: parseFloat(trip.driver.location.latitude), 
+                        lng: parseFloat(trip.driver.location.longitude) 
+                    },
+                    map: map,
+                    icon: {
+                        url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                        scaledSize: new google.maps.Size(32, 32)
+                    },
+                    title: `Driver: ${trip.driver.name}`
+                });
+                markers.push(driverMarker);
+            }
+        });
+    }
+    
+    // Focus on specific trip
+    function focusOnTrip(tripId) {
+        activeTripId = tripId;
+        
+        // Fetch trip details from API
+        fetch(`/admins/trip/${tripId}/`)
+            .then(response => response.json())
+            .then(trip => {
+                // Center map on pickup location
+                const center = { lat: trip.pickup_latitude, lng: trip.pickup_longitude };
+                map.setCenter(center);
+                map.setZoom(14);
+                
+                // Clear existing markers
+                markers.forEach(marker => marker.setMap(null));
+                markers = [];
+                
+                // Add pickup marker
+                const pickupMarker = new google.maps.Marker({
+                    position: { lat: trip.pickup_latitude, lng: trip.pickup_longitude },
+                    map: map,
+                    icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+                    title: 'Pickup Location'
+                });
+                markers.push(pickupMarker);
+                
+                // Add dropoff marker
+                const dropoffMarker = new google.maps.Marker({
+                    position: { lat: trip.dropoff_latitude, lng: trip.dropoff_longitude },
+                    map: map,
+                    icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                    title: 'Destination'
+                });
+                markers.push(dropoffMarker);
+                
+                // Add driver marker if location exists
+                if (trip.driver && trip.driver.location) {
+                    const driverMarker = new google.maps.Marker({
+                        position: { 
+                            lat: trip.driver.location.latitude, 
+                            lng: trip.driver.location.longitude 
+                        },
+                        map: map,
+                        icon: {
+                            url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                            scaledSize: new google.maps.Size(32, 32)
+                        },
+                        title: `Driver: ${trip.driver.name}`
+                    });
+                    markers.push(driverMarker);
+                    
+                    // Draw route from driver to pickup
+                    if (google.maps.DirectionsService) {
+                        const directionsService = new google.maps.DirectionsService();
+                        const directionsRenderer = new google.maps.DirectionsRenderer({ map: map, suppressMarkers: true });
+                        
+                        directionsService.route({
+                            origin: { lat: trip.driver.location.latitude, lng: trip.driver.location.longitude },
+                            destination: { lat: trip.pickup_latitude, lng: trip.pickup_longitude },
+                            travelMode: 'DRIVING'
+                        }, (result, status) => {
+                            if (status === 'OK') {
+                                directionsRenderer.setDirections(result);
+                                markers.push(directionsRenderer);
+                            }
+                        });
+                    }
+                }
+                
+                // Show notification
+                showToastNotification('Tracking', `Now tracking Trip #${tripId}`, 'info');
+            })
+            .catch(error => console.error('Error fetching trip:', error));
+    }
+    
+    // View trip details in modal
+    function viewTripDetails(tripId) {
+        const modal = document.getElementById('tripModal');
+        const modalContent = document.getElementById('modalContent');
+        
+        modal.classList.remove('hidden');
+        modalContent.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p>Loading trip details...</p></div>';
+        
+        fetch(`/admins/trip/${tripId}/`)
+            .then(response => response.json())
+            .then(trip => {
+                modalContent.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-gray-50 p-3 rounded">
+                                <p class="text-sm text-gray-500">Trip ID</p>
+                                <p class="font-bold text-lg">#${trip.id}</p>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded">
+                                <p class="text-sm text-gray-500">Status</p>
+                                <span class="px-2 py-1 inline-flex text-xs font-semibold rounded-full 
+                                    ${trip.status === 'accepted' ? 'bg-blue-100 text-blue-800' : 
+                                      trip.status === 'arrived' ? 'bg-green-100 text-green-800' : 
+                                      trip.status === 'ongoing' ? 'bg-purple-100 text-purple-800' : 
+                                      'bg-gray-100 text-gray-800'}">
+                                    ${trip.status_display}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="border-t pt-3">
+                            <h4 class="font-bold mb-2">Student Information</h4>
+                            <p><strong>Name:</strong> ${trip.student.name}</p>
+                            <p><strong>Email:</strong> ${trip.student.email}</p>
+                            <p><strong>Phone:</strong> ${trip.student.phone}</p>
+                        </div>
+                        
+                        <div class="border-t pt-3">
+                            <h4 class="font-bold mb-2">Driver Information</h4>
+                            ${trip.driver ? `
+                                <p><strong>Name:</strong> ${trip.driver.name}</p>
+                                <p><strong>Phone:</strong> ${trip.driver.phone}</p>
+                            ` : '<p class="text-yellow-600">No driver assigned yet</p>'}
+                        </div>
+                        
+                        <div class="border-t pt-3">
+                            <h4 class="font-bold mb-2">Trip Details</h4>
+                            <p><strong>Pickup:</strong> ${trip.pickup_address}</p>
+                            <p><strong>Destination:</strong> ${trip.dropoff_address}</p>
+                            <p><strong>Fare:</strong> <span class="font-bold text-green-600">₦${trip.total_fare}</span></p>
+                        </div>
+                        
+                        <div class="border-t pt-3">
+                            <h4 class="font-bold mb-2">Timeline</h4>
+                            <p><strong>Requested:</strong> ${new Date(trip.requested_at).toLocaleString()}</p>
+                            ${trip.accepted_at ? `<p><strong>Accepted:</strong> ${new Date(trip.accepted_at).toLocaleString()}</p>` : ''}
+                            ${trip.arrived_at ? `<p><strong>Arrived:</strong> ${new Date(trip.arrived_at).toLocaleString()}</p>` : ''}
+                            ${trip.started_at ? `<p><strong>Started:</strong> ${new Date(trip.started_at).toLocaleString()}</p>` : ''}
+                            ${trip.completed_at ? `<p><strong>Completed:</strong> ${new Date(trip.completed_at).toLocaleString()}</p>` : ''}
+                        </div>
+                        
+                        <div class="flex justify-end space-x-3 pt-3 border-t">
+                            <button onclick="focusOnTrip(${trip.id}); closeTripModal();" 
+                                    class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                                <i class="fas fa-map-marker-alt mr-2"></i> Track on Map
+                            </button>
+                            <button onclick="closeTripModal()" 
+                                    class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                `;
+            })
+            .catch(error => {
+                modalContent.innerHTML = `
+                    <div class="text-center py-8 text-red-500">
+                        <i class="fas fa-exclamation-circle text-4xl mb-2"></i>
+                        <p>Error loading trip details</p>
+                    </div>
+                `;
+            });
+    }
+    
+    function closeTripModal() {
+        document.getElementById('tripModal').classList.add('hidden');
+    }
+    
+    // Refresh active trips every 10 seconds
+    setInterval(() => {
+        fetch('/admins/trips/active/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.trips) {
+                    // Update the active trips table without refreshing the page
+                    const tbody = document.querySelector('#active-trips-tbody');
+                    if (tbody) {
+                        // Update the table content
+                    }
+                }
+            })
+            .catch(error => console.error('Error refreshing trips:', error));
+    }, 10000);
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof google !== 'undefined') {
+            initMap();
+        }
+    });
+    
+    function showToastNotification(title, message, type) {
+        if (window.showToastNotification) {
+            window.showToastNotification(title, message, type);
+        }
+    }
+</script> -->
+
+<script>
+    let map;
+    let markers = [];
+    let activeTripId = null;
+    let updateInterval = null;
+    let tripsData = [];
+    
+    // Initialize map
+    function initMap() {
+        const defaultCenter = { lat: 9.146584, lng: 7.303846 };
+        
+        map = new google.maps.Map(document.getElementById('liveMap'), {
+            center: defaultCenter,
+            zoom: 12,
+            zoomControl: true,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: true
+        });
+        
+        // Load active trips
+        loadActiveTrips();
+        
+        // Auto-refresh every 15 seconds
+        if (updateInterval) clearInterval(updateInterval);
+        updateInterval = setInterval(loadActiveTrips, 15000);
+    }
+    
+    function loadActiveTrips() {
+        fetch('/admins/trips/active/')
+            .then(response => response.json())
+            .then(data => {
+                tripsData = data.trips || [];
+                updateMapMarkers();
+                updateActiveTripsTable();
+            })
+            .catch(error => console.error('Error loading active trips:', error));
+    }
+    
+    function updateMapMarkers() {
+        // Clear existing markers
+        markers.forEach(marker => marker.setMap(null));
+        markers = [];
+        
+        // Add markers for each active trip
+        tripsData.forEach(trip => {
+            // Add pickup marker
+            const pickupMarker = new google.maps.Marker({
+                position: { lat: trip.pickup_latitude, lng: trip.pickup_longitude },
+                map: map,
+                icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+                title: `Trip #${trip.id} - Pickup`
+            });
+            markers.push(pickupMarker);
+            
+            // Add dropoff marker
+            const dropoffMarker = new google.maps.Marker({
+                position: { lat: trip.dropoff_latitude, lng: trip.dropoff_longitude },
+                map: map,
+                icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                title: `Trip #${trip.id} - Destination`
+            });
+            markers.push(dropoffMarker);
+            
+            // Add info window
+            const infoContent = `
+                <div class="p-2">
+                    <strong>Trip #${trip.id}</strong><br>
+                    Student: ${trip.student_name}<br>
+                    Status: ${trip.status_display}<br>
+                    Fare: ₦${trip.total_fare}
+                    ${trip.driver_name ? `<br>Driver: ${trip.driver_name}` : ''}
+                </div>
+            `;
+            
+            const infoWindow = new google.maps.InfoWindow({ content: infoContent });
+            pickupMarker.addListener('click', () => infoWindow.open(map, pickupMarker));
+            dropoffMarker.addListener('click', () => infoWindow.open(map, dropoffMarker));
+            
+            // Add driver marker if location available
+            if (trip.driver_location && trip.driver_location.latitude) {
+                const driverMarker = new google.maps.Marker({
+                    position: { 
+                        lat: trip.driver_location.latitude, 
+                        lng: trip.driver_location.longitude 
+                    },
+                    map: map,
+                    icon: {
+                        url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                        scaledSize: new google.maps.Size(32, 32)
+                    },
+                    title: `Driver: ${trip.driver_name || 'Unknown'}`
+                });
+                markers.push(driverMarker);
+            }
+        });
+    }
+    
+    function updateActiveTripsTable() {
+        const tbody = document.getElementById('activeTripsBody');
+        if (!tbody) return;
+        
+        if (tripsData.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                        <i class="fas fa-car-side text-4xl mb-2 block"></i>
+                        No active trips at the moment
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = tripsData.map(trip => `
+            <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#${trip.id}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    ${trip.student_name}<br>
+                    <span class="text-xs text-gray-400">${trip.requested_at ? new Date(trip.requested_at).toLocaleTimeString() : ''}</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    ${trip.driver_name || '<span class="text-yellow-600">Not assigned</span>'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${trip.status === 'accepted' ? 'bg-blue-100 text-blue-800'
+                        : trip.status === 'arrived' ? 'bg-green-100 text-green-800'
+                        : trip.status === 'ongoing' ? 'bg-purple-100 text-purple-800'
+                        : trip.status === 'searching' ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-100 text-gray-800'}">
+                        ${trip.status_display}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">₦${trip.total_fare}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <button onclick="focusOnTrip(${trip.id})" class="text-blue-600 hover:text-blue-800 mr-3">
+                        <i class="fas fa-map-marker-alt"></i> Track
+                    </button>
+                    <button onclick="viewTripDetails(${trip.id})" class="text-gray-600 hover:text-gray-800">
+                        <i class="fas fa-info-circle"></i> Details
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    function focusOnTrip(tripId) {
+        const trip = tripsData.find(t => t.id === tripId);
+        if (!trip) return;
+        
+        activeTripId = tripId;
+        
+        // Center map on pickup location
+        const center = { lat: trip.pickup_latitude, lng: trip.pickup_longitude };
+        map.setCenter(center);
+        map.setZoom(14);
+        
+        // Show toast notification
+        showToastNotification('Tracking', `Now tracking Trip #${tripId}`, 'info');
+        
+        // Draw route if driver has location
+        if (trip.driver_location && trip.driver_location.latitude) {
+            drawRoute(trip);
+        }
+    }
+    
+    function drawRoute(trip) {
+        if (!google.maps.DirectionsService) return;
+        
+        const directionsService = new google.maps.DirectionsService();
+        const directionsRenderer = new google.maps.DirectionsRenderer({ 
+            map: map, 
+            suppressMarkers: true,
+            polylineOptions: {
+                strokeColor: '#4285F4',
+                strokeWeight: 4,
+                strokeOpacity: 0.7
+            }
+        });
+        
+        directionsService.route({
+            origin: { lat: trip.driver_location.latitude, lng: trip.driver_location.longitude },
+            destination: { lat: trip.pickup_latitude, lng: trip.pickup_longitude },
+            travelMode: 'DRIVING'
+        }, (result, status) => {
+            if (status === 'OK') {
+                directionsRenderer.setDirections(result);
+                
+                // Store to clear later if needed
+                if (window.currentDirections) {
+                    window.currentDirections.setMap(null);
+                }
+                window.currentDirections = directionsRenderer;
+                
+                // Auto clear after 10 seconds
+                setTimeout(() => {
+                    if (window.currentDirections) {
+                        window.currentDirections.setMap(null);
+                        window.currentDirections = null;
+                    }
+                }, 10000);
+            }
+        });
+    }
+    
+    function viewTripDetails(tripId) {
+        const trip = tripsData.find(t => t.id === tripId);
+        if (!trip) return;
+        
+        const modal = document.getElementById('tripModal');
+        const modalContent = document.getElementById('modalContent');
+        
+        modal.classList.remove('hidden');
+        
+        modalContent.innerHTML = `
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-3 rounded">
+                        <p class="text-sm text-gray-500">Trip ID</p>
+                        <p class="font-bold text-lg">#${trip.id}</p>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded">
+                        <p class="text-sm text-gray-500">Status</p>
+                        <span class="px-2 py-1 inline-flex text-xs font-semibold rounded-full 
+                            ${trip.status === 'accepted' ? 'bg-blue-100 text-blue-800' : 
+                              trip.status === 'arrived' ? 'bg-green-100 text-green-800' : 
+                              trip.status === 'ongoing' ? 'bg-purple-100 text-purple-800' : 
+                              'bg-yellow-100 text-yellow-800'}">
+                            ${trip.status_display}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="border-t pt-3">
+                    <h4 class="font-bold mb-2">Trip Details</h4>
+                    <p><strong>Pickup:</strong> ${trip.pickup_address || 'Address not available'}</p>
+                    <p><strong>Destination:</strong> ${trip.dropoff_address || 'Address not available'}</p>
+                    <p><strong>Fare:</strong> <span class="font-bold text-green-600">₦${trip.total_fare}</span></p>
+                </div>
+                
+                <div class="border-t pt-3">
+                    <h4 class="font-bold mb-2">Student Information</h4>
+                    <p><strong>Name:</strong> ${trip.student_name}</p>
+                </div>
+                
+                <div class="border-t pt-3">
+                    <h4 class="font-bold mb-2">Driver Information</h4>
+                    ${trip.driver_name ? 
+                        `<p><strong>Name:</strong> ${trip.driver_name}</p>` : 
+                        '<p class="text-yellow-600">No driver assigned yet</p>'}
+                </div>
+                
+                <div class="flex justify-end space-x-3 pt-3 border-t">
+                    <button onclick="focusOnTrip(${trip.id}); closeTripModal();" 
+                            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                        <i class="fas fa-map-marker-alt mr-2"></i> Track on Map
+                    </button>
+                    <button onclick="closeTripModal()" 
+                            class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+    
+    function closeTripModal() {
+        document.getElementById('tripModal').classList.add('hidden');
+    }
+    
+    function showToastNotification(title, message, type) {
+        if (window.showToastNotification) {
+            window.showToastNotification(title, message, type);
+        } else {
+            console.log(`${title}: ${message}`);
+        }
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof google !== 'undefined') {
+            initMap();
+        } else {
+            console.log('Waiting for Google Maps...');
+            window.initMap = initMap;
+        }
+    });
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places,geometry"></script>
+{% endblock %}

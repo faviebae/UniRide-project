@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.gis',
     
     # Third party apps
     'rest_framework',
@@ -84,25 +85,25 @@ TEMPLATES = [
     },
 ]
 
-#   Database - SQLite for development (easier to start)
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-     }
- }
-
-# # For PostgreSQL with PostGIS (recommended for production)
+# #   Database - SQLite for development (easier to start)
 # DATABASES = {
 #     'default': {
-#         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-#         'NAME': config('DB_NAME', default='ride_booking'),
-#         'USER': config('DB_USER', default='postgres'),
-#         'PASSWORD': config('DB_PASSWORD', default='postgres'),
-#         'HOST': config('DB_HOST', default='localhost'),
-#         'PORT': config('DB_PORT', default='5432'),
-#     }
-# }
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#      }
+#  }
+
+# For PostgreSQL with PostGIS (recommended for production)
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        'NAME': config('DB_NAME', default='ride_booking'),
+        'USER': config('DB_USER', default='postgres'),
+        'PASSWORD': config('DB_PASSWORD', default='postgres'),
+        'HOST': config('DB_HOST', default='localhost'),
+        'PORT': config('DB_PORT', default='5432'),
+    }
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -132,6 +133,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -171,7 +174,7 @@ CHANNEL_LAYERS = {
 # }
 
 # Google Maps API
-GOOGLE_MAPS_API_KEY = config('GOOGLE_MAPS_API_KEY', default='')
+# GOOGLE_MAPS_API_KEY = config('GOOGLE_MAPS_API_KEY', default='')
 
 # Ride pricing
 RIDE_CONFIG = {
@@ -181,3 +184,17 @@ RIDE_CONFIG = {
     'SERVICE_FEE': 50,
     'COMMISSION_PERCENTAGE': 15,
 }
+# GOOGLE_MAPS_API_KEY = 'AIzaSyBSee-fXHV0M3sfBricYUM4n3e0m-3qKkw'
+GOOGLE_MAPS_API_KEY = 'AIzaSyBmzxkIql_HGJdwgAO8WifF8E-RjIgNF7U'
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'giftthomas78@gmail.com'
+EMAIL_HOST_PASSWORD = 'zwje dhcn noew gwae'
+DEFAULT_FROM_EMAIL = 'UniRide <giftthomas78@gmail.com>'
+
+
+# GOOGLE_MAPS_API_KEY = 'AIzaSyA94UPeA1NSTfYRB5S9rrdOkCXQ6AyyrVk'

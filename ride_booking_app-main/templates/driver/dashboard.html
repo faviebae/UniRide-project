@@ -1,24 +1,1478 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Driver Dashboard{% endblock %}
+{% block title %}Driver Dashboard - UniRide{% endblock %}
 
 {% block content %}
 <div class="max-w-7xl mx-auto">
-    <div class="bg-white rounded-lg shadow-lg p-6">
-        <h1 class="text-2xl font-bold mb-4">Driver Dashboard</h1>
-        
-        <div class="border-t border-b py-4 my-4">
-            <p><strong>Name:</strong> {{ user.get_full_name }}</p>
-            <p><strong>Email:</strong> {{ user.email }}</p>
-            <p><strong>Phone:</strong> {{ user.phone_number }}</p>
-            <p><strong>Status:</strong> {% if user.is_available %}Available{% else %}Offline{% endif %}</p>
+    <!-- Status Card -->
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div class="flex justify-between items-center flex-wrap gap-4">
+            <div>
+                <h2 class="text-2xl font-bold mb-2">Driver Dashboard</h2>
+                <p class="text-gray-600">Welcome back, {{ user.get_full_name }}!</p>
+                <p class="text-sm text-gray-500 mt-1">
+                    <i class="fas fa-envelope mr-1"></i> {{ user.email }} | 
+                    <i class="fas fa-phone mr-1"></i> {{ user.phone_number }}
+                </p>
+            </div>
+            <div class="text-right">
+                <div class="mb-2">
+                    <span id="statusBadge" class="px-3 py-1 rounded-full text-sm font-semibold {% if user.is_available %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                        <i class="fas {% if user.is_available %}fa-circle{% else %}fa-circle-stop{% endif %} mr-1"></i>
+                        {% if user.is_available %}Online{% else %}Offline{% endif %}
+                    </span>
+                </div>
+                <button onclick="toggleDriverStatus()" 
+                        id="statusToggleBtn"
+                        class="px-4 py-2 rounded-lg text-white {% if user.is_available %}bg-red-600 hover:bg-red-700{% else %}bg-green-600 hover:bg-green-700{% endif %} transition">
+                    <i class="fas {% if user.is_available %}fa-power-off{% else %}fa-play{% endif %} mr-2"></i>
+                    {% if user.is_available %}Go Offline{% else %}Go Online{% endif %}
+                </button>
+            </div>
         </div>
+
+        <div class="bg-gray-100 p-2 mb-4 text-xs">
+        User ID: {{ user.id }} | 
+        Authenticated: {{ user.is_authenticated }} | 
+        Role: {{ user.role }}
+    </div>
         
-        <div class="mt-6">
-            <a href="/" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                Back to Home
-            </a>
+        <!-- Vehicle Info -->
+        <div id="vehicleInfo" class="mt-4 pt-4 border-t"></div>
+        
+        <!-- Driver Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t">
+            <div class="text-center">
+                <p class="text-2xl font-bold text-blue-600" id="totalEarnings">0</p>
+                <p class="text-sm text-gray-600">Total Earnings</p>
+            </div>
+            <div class="text-center">
+                <p class="text-2xl font-bold text-green-600" id="completedTrips">0</p>
+                <p class="text-sm text-gray-600">Completed Trips</p>
+            </div>
+            <div class="text-center">
+                <p class="text-2xl font-bold text-purple-600" id="driverRating">0★</p>
+                <p class="text-sm text-gray-600">Rating</p>
+            </div>
+            <div class="text-center">
+                <p class="text-2xl font-bold text-orange-600" id="todayEarnings">0</p>
+                <p class="text-sm text-gray-600">Today's Earnings</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Active Trip Section -->
+    <div id="activeTripCard" class="hidden bg-white rounded-lg shadow-lg p-6 mb-6 border-l-4 border-blue-500">
+        <h3 class="text-xl font-bold mb-4">
+            <i class="fas fa-play-circle text-blue-600 mr-2"></i> Current Trip
+        </h3>
+        <div id="activeTripDetails"></div>
+        <div id="tripActionButtons" class="mt-4 flex space-x-3"></div>
+    </div>
+    
+    <!-- Ride Requests -->
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <h3 class="text-xl font-bold mb-4">
+            <i class="fas fa-bell text-yellow-600 mr-2"></i> Ride Requests
+            <span id="requestCount" class="text-sm bg-red-500 text-white px-2 py-1 rounded-full ml-2">0</span>
+        </h3>
+        <div id="rideRequests" class="space-y-4">
+            <div class="text-center py-8 text-gray-500">
+                <i class="fas fa-spinner fa-spin text-2xl"></i>
+                <p class="mt-2">Loading ride requests...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Trip History -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h3 class="text-xl font-bold mb-4">
+            <i class="fas fa-history text-gray-600 mr-2"></i> Recent Trips
+        </h3>
+        <div id="tripHistory" class="space-y-3">
+            <div class="text-center py-8 text-gray-500">
+                <i class="fas fa-spinner fa-spin text-2xl"></i>
+                <p class="mt-2">Loading trip history...</p>
+            </div>
         </div>
     </div>
 </div>
+<button onclick="forceCompleteTrip()" class="bg-red-600 text-white px-4 py-2 rounded-lg">
+    Force Complete Current Trip (Testing)
+</button>
+
+<!-- Vehicle Registration Modal -->
+ <!-- Replace the modal content with this -->
+<!-- <div id="vehicleModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-lg bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">Register Your Vehicle</h3>
+            <button onclick="closeVehicleModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        <form method="POST" action="/vehicles/register/" enctype="multipart/form-data" id="vehicleForm">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Make *</label>
+                <input type="text" name="make" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Model *</label>
+                <input type="text" name="model" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Year *</label>
+                <input type="number" name="year" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Color *</label>
+                <input type="text" name="color" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">License Plate *</label>
+                <input type="text" name="license_plate" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Vehicle Photo</label>
+                <input type="file" name="photo" accept="image/*" class="w-full">
+            </div>
+            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                Register Vehicle
+            </button>
+        </form>
+    </div>
+</div> -->
+
+<!-- In your driver/dashboard.html - Update the vehicle modal -->
+<div id="vehicleModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-lg bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">Register Your Vehicle</h3>
+            <button onclick="closeVehicleModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        <form method="POST" action="/vehicles/register/" enctype="multipart/form-data" id="vehicleForm">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Make *</label>
+                <input type="text" name="make" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Model *</label>
+                <input type="text" name="model" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Year *</label>
+                <input type="number" name="year" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Color *</label>
+                <input type="text" name="color" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">License Plate *</label>
+                <input type="text" name="license_plate" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Vehicle Photo</label>
+                <input type="file" name="photo" accept="image/*" class="w-full">
+            </div>
+            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                Register Vehicle
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+
+    function showVehicleModal() {
+        document.getElementById('vehicleModal').classList.remove('hidden');
+    }
+
+    function closeVehicleModal() {
+        document.getElementById('vehicleModal').classList.add('hidden');
+        document.getElementById('vehicleForm').reset();
+}
+</script>
+<!-- <div id="vehicleModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-lg bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">Register Your Vehicle</h3>
+            <button onclick="closeVehicleModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        <form id="vehicleForm">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Make *</label>
+                <input type="text" id="make" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Model *</label>
+                <input type="text" id="model" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Year *</label>
+                <input type="number" id="year" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Color *</label>
+                <input type="text" id="color" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">License Plate *</label>
+                <input type="text" id="license_plate" required class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">Vehicle Photo</label>
+                <input type="file" id="photo" accept="image/*" class="w-full">
+            </div>
+            <button type="button" id="registerVehicleBtn" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                Register Vehicle
+            </button>
+        </form>
+    </div>
+</div> -->
+
+<script>
+    // Make sure DOM is fully loaded before running scripts
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Driver dashboard loaded');
+        
+        // Initialize all functions
+        checkVehicleStatus();
+        loadStats();
+        loadTripHistory();
+        loadCurrentTrip();
+        loadRideRequests();
+        connectDriverWebSocket();
+        
+        // Set up vehicle registration button click handler
+        const registerBtn = document.getElementById('registerVehicleBtn');
+        if (registerBtn) {
+            registerBtn.addEventListener('click', registerVehicle);
+        }
+    });
+
+    async function forceCompleteTrip() {
+        // First get current trip
+        const response = await fetch('/driver/active-trip/');
+        if (response.status === 404) {
+            alert('No active trip found');
+            return;
+        }
+        
+        const trip = await response.json();
+        if (trip.id) {
+            const completeResponse = await fetch(`/trips/${trip.id}/complete/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            const data = await completeResponse.json();
+            if (completeResponse.ok) {
+                alert('Trip completed successfully!');
+                location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        }
+    }
+    
+    // Global variables
+    let ws = null;
+    let watchId = null;
+    let currentTripId = null;
+    
+    // ========== VEHICLE MANAGEMENT ==========
+    
+    async function checkVehicleStatus() {
+        try {
+            const response = await fetch('/vehicles/my-vehicle/');
+            const data = await response.json();
+            const vehicleDiv = document.getElementById('vehicleInfo');
+            
+            if (vehicleDiv) {
+                if (data.id) {
+                    vehicleDiv.innerHTML = `
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <p class="font-medium">🚗 ${data.make} ${data.model} (${data.year})</p>
+                                    <p class="text-sm text-gray-600">Color: ${data.color} | Plate: ${data.license_plate}</p>
+                                    <p class="text-sm">Status: ${data.is_approved ? '✅ Approved' : '⏳ Pending Approval'}</p>
+                                </div>
+                                <button onclick="showVehicleModal()" class="text-blue-600 text-sm hover:underline">
+                                    <i class="fas fa-edit"></i> Update
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    vehicleDiv.innerHTML = `
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <p class="font-medium">⚠️ No vehicle registered yet</p>
+                                    <p class="text-sm text-gray-600">Register your vehicle to start accepting rides</p>
+                                </div>
+                                <button onclick="showVehicleModal()" class="bg-blue-600 text-white px-4 py-1 rounded-lg text-sm">
+                                    Register Now
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        } catch (error) {
+            console.error('Error checking vehicle:', error);
+        }
+    }
+    
+    function showVehicleModal() {
+        const modal = document.getElementById('vehicleModal');
+        if (modal) modal.classList.remove('hidden');
+    }
+    
+    function closeVehicleModal() {
+        const modal = document.getElementById('vehicleModal');
+        if (modal) modal.classList.add('hidden');
+        document.getElementById('vehicleForm').reset();
+    }
+    
+    // async function registerVehicle() {
+    //     const make = document.getElementById('make').value;
+    //     const model = document.getElementById('model').value;
+    //     const year = document.getElementById('year').value;
+    //     const color = document.getElementById('color').value;
+    //     const license_plate = document.getElementById('license_plate').value;
+    //     const photo = document.getElementById('photo').files[0];
+        
+    //     if (!make || !model || !year || !color || !license_plate) {
+    //         showToastNotification('Error', 'Please fill in all required fields', 'error');
+    //         return;
+    //     }
+        
+    //     const formData = new FormData();
+    //     formData.append('make', make);
+    //     formData.append('model', model);
+    //     formData.append('year', year);
+    //     formData.append('color', color);
+    //     formData.append('license_plate', license_plate);
+    //     if (photo) {
+    //         formData.append('photo', photo);
+    //     }
+        
+    //     const btn = document.getElementById('registerVehicleBtn');
+    //     btn.disabled = true;
+    //     btn.textContent = 'Registering...';
+        
+    //     try {
+    //         const response = await fetch('/vehicles/register/', {
+    //             method: 'POST',
+    //             headers: {
+    //                 'X-CSRFToken': getCookie('csrftoken')
+    //             },
+    //             body: formData
+    //         });
+            
+    //         const data = await response.json();
+            
+    //         if (response.ok) {
+    //             showToastNotification('Success', 'Vehicle registered successfully!', 'success');
+    //             closeVehicleModal();
+    //             checkVehicleStatus();
+    //         } else {
+    //             showToastNotification('Error', data.error || 'Registration failed', 'error');
+    //         }
+    //     } catch (error) {
+    //         console.error('Registration error:', error);
+    //         showToastNotification('Error', 'Network error. Please try again.', 'error');
+    //     } finally {
+    //         btn.disabled = false;
+    //         btn.textContent = 'Register Vehicle';
+    //     }
+    // }
+
+    // async function registerVehicle() {
+    //     const make = document.getElementById('make').value;
+    //     const model = document.getElementById('model').value;
+    //     const year = document.getElementById('year').value;
+    //     const color = document.getElementById('color').value;
+    //     const license_plate = document.getElementById('license_plate').value;
+    //     const photo = document.getElementById('photo').files[0];
+        
+    //     if (!make || !model || !year || !color || !license_plate) {
+    //         showToastNotification('Error', 'Please fill in all required fields', 'error');
+    //         return;
+    //     }
+        
+    //     const formData = new FormData();
+    //     formData.append('make', make);
+    //     formData.append('model', model);
+    //     formData.append('year', year);
+    //     formData.append('color', color);
+    //     formData.append('license_plate', license_plate);
+    //     if (photo) {
+    //         formData.append('photo', photo);
+    //     }
+        
+    //     const btn = document.getElementById('registerVehicleBtn');
+    //     btn.disabled = true;
+    //     btn.textContent = 'Registering...';
+        
+    //     try {
+    //         // Get CSRF token from cookie
+    //         const csrftoken = getCookie('csrftoken');
+            
+    //         const response = await fetch('/vehicles/register/', {
+    //             method: 'POST',
+    //             headers: {
+    //                 'X-CSRFToken': csrftoken,
+    //                 'X-Requested-With': 'XMLHttpRequest'  // Add this for Django to recognize as AJAX
+    //             },
+    //             credentials: 'same-origin',  // Important: send cookies
+    //             body: formData
+    //         });
+            
+    //         // Check if response is ok
+    //         if (response.status === 401) {
+    //             showToastNotification('Error', 'Please login again', 'error');
+    //             window.location.href = '/login/';
+    //             return;
+    //         }
+            
+    //         const data = await response.json();
+            
+    //         if (response.ok) {
+    //             showToastNotification('Success', 'Vehicle registered successfully!', 'success');
+    //             closeVehicleModal();
+    //             checkVehicleStatus();
+    //         } else {
+    //             showToastNotification('Error', data.error || data.detail || 'Registration failed', 'error');
+    //         }
+    //     } catch (error) {
+    //         console.error('Registration error:', error);
+    //         showToastNotification('Error', 'Network error. Please try again.', 'error');
+    //     } finally {
+    //         btn.disabled = false;
+    //         btn.textContent = 'Register Vehicle';
+    //     }
+    // }
+
+    // // Make sure getCookie function exists
+    // function getCookie(name) {
+    //     let cookieValue = null;
+    //     if (document.cookie && document.cookie !== '') {
+    //         const cookies = document.cookie.split(';');
+    //         for (let i = 0; i < cookies.length; i++) {
+    //             const cookie = cookies[i].trim();
+    //             if (cookie.substring(0, name.length + 1) === (name + '=')) {
+    //                 cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     return cookieValue;
+    // }
+
+    // Make sure this function is defined BEFORE it's called
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Make sure showToastNotification is available
+    function showToastNotification(title, message, type) {
+        if (window.showToastNotification) {
+            window.showToastNotification(title, message, type);
+        } else {
+            console.log(`${title}: ${message}`);
+            alert(message);
+        }
+    }
+
+    // Vehicle registration function
+    async function registerVehicle() {
+        console.log('Register button clicked');
+        
+        // Get form values
+        const make = document.getElementById('make')?.value;
+        const model = document.getElementById('model')?.value;
+        const year = document.getElementById('year')?.value;
+        const color = document.getElementById('color')?.value;
+        const license_plate = document.getElementById('license_plate')?.value;
+        const photo = document.getElementById('photo')?.files[0];
+        
+        // Validate
+        if (!make || !model || !year || !color || !license_plate) {
+            showToastNotification('Error', 'Please fill in all required fields', 'error');
+            return;
+        }
+        
+        // Create FormData
+        const formData = new FormData();
+        formData.append('make', make);
+        formData.append('model', model);
+        formData.append('year', year);
+        formData.append('color', color);
+        formData.append('license_plate', license_plate);
+        if (photo) {
+            formData.append('photo', photo);
+        }
+        
+        // Disable button
+        const btn = document.getElementById('registerVehicleBtn');
+        btn.disabled = true;
+        btn.textContent = 'Registering...';
+        
+        try {
+            // Get CSRF token
+            const csrftoken = getCookie('csrftoken');
+            console.log('CSRF Token found:', csrftoken ? 'Yes' : 'No');
+            
+            // Make the request
+            const response = await fetch('/vehicles/register/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin',
+                body: formData
+            });
+            
+            console.log('Response status:', response.status);
+            
+            // Handle response
+            if (response.status === 401) {
+                showToastNotification('Error', 'Please log in again', 'error');
+                window.location.href = '/login/';
+                return;
+            }
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                showToastNotification('Success', 'Vehicle registered successfully!', 'success');
+                closeVehicleModal();
+                checkVehicleStatus(); // Refresh vehicle display
+            } else {
+                const errorMsg = data.error || data.detail || Object.values(data)[0]?.[0] || 'Registration failed';
+                showToastNotification('Error', errorMsg, 'error');
+            }
+        } catch (error) {
+            console.error('Registration error:', error);
+            showToastNotification('Error', 'Network error. Please try again.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Register Vehicle';
+        }
+    }
+
+    async function loadRideRequests() {
+        try {
+            // Show trips that are searching for drivers
+            const response = await fetch('/trips/?status=searching');
+            const data = await response.json();
+            const trips = data.trips || [];
+            
+            const container = document.getElementById('rideRequests');
+            const countSpan = document.getElementById('requestCount');
+            
+            if (container) {
+                if (trips.length > 0) {
+                    if (countSpan) countSpan.textContent = trips.length;
+                    container.innerHTML = trips.map(trip => `
+                        <div class="border rounded-lg p-4 hover:shadow-md transition bg-yellow-50">
+                            <div class="flex justify-between items-start flex-wrap gap-3">
+                                <div class="flex-1">
+                                    <div class="flex items-center mb-2">
+                                        <i class="fas fa-circle-dot text-green-500 mr-2"></i>
+                                        <span class="font-medium">Pickup:</span>
+                                        <span class="ml-2 text-gray-700">${trip.pickup_address?.substring(0, 80) || 'N/A'}</span>
+                                    </div>
+                                    <div class="flex items-center mb-2">
+                                        <i class="fas fa-flag-checkered text-red-500 mr-2"></i>
+                                        <span class="font-medium">Dropoff:</span>
+                                        <span class="ml-2 text-gray-700">${trip.dropoff_address?.substring(0, 80) || 'N/A'}</span>
+                                    </div>
+                                    <div class="flex items-center gap-4 mt-2">
+                                        <span class="text-sm text-gray-500">
+                                            <i class="fas fa-clock mr-1"></i> ${new Date(trip.requested_at).toLocaleTimeString()}
+                                        </span>
+                                        <span class="text-lg font-bold text-blue-600">₦${trip.total_fare}</span>
+                                    </div>
+                                </div>
+                                <button onclick="acceptTrip(${trip.id})" 
+                                        class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition">
+                                    <i class="fas fa-check-circle mr-1"></i> Accept
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    if (countSpan) countSpan.textContent = '0';
+                    container.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-car-side text-4xl mb-2"></i>
+                            <p>No ride requests at the moment</p>
+                            <p class="text-sm">Go online to receive ride requests</p>
+                        </div>
+                    `;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading ride requests:', error);
+        }
+    }
+
+    // async function acceptRide(tripId) {
+    //     try {
+    //         const response = await fetch(`/driver/accept-ride/${tripId}/`, {
+    //             method: 'POST',
+    //             headers: {
+    //                 'Content-Type': 'application/json',
+    //                 'X-CSRFToken': getCookie('csrftoken')
+    //             }
+    //         });
+            
+    //         const data = await response.json();
+            
+    //         if (response.ok) {
+    //             showToastNotification('Success', 'Ride accepted!', 'success');
+    //             loadAvailableRides();
+    //             checkDriverActiveTrip();
+    //         } else {
+    //             showToastNotification('Error', data.error || 'Failed to accept ride', 'error');
+    //         }
+    //     } catch (error) {
+    //         showToastNotification('Error', 'Network error', 'error');
+    //     }
+    // }
+
+    async function checkDriverActiveTrip() {
+        try {
+            const response = await fetch('/driver/active-trip/');
+            
+            if (response.status === 404) {
+                document.getElementById('activeTripCard').classList.add('hidden');
+                return;
+            }
+            
+            const trip = await response.json();
+            
+            if (trip && trip.id) {
+                showDriverActiveTrip(trip);
+            }
+        } catch (error) {
+            console.error('Error checking active trip:', error);
+        }
+    }
+
+    function showDriverActiveTrip(trip) {
+        document.getElementById('activeTripCard').classList.remove('hidden');
+        
+        const statusMessages = {
+            'accepted': 'Heading to pickup...',
+            'arrived': 'Arrived at pickup - Waiting for passenger',
+            'ongoing': 'Trip in progress'
+        };
+        
+        let actionButtons = '';
+        
+        if (trip.status === 'accepted') {
+            actionButtons = `<button onclick="markArrived(${trip.id})" class="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700">
+                                <i class="fas fa-flag-checkered mr-2"></i> I've Arrived
+                            </button>`;
+        } else if (trip.status === 'arrived') {
+            actionButtons = `<button onclick="startTrip(${trip.id})" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                                <i class="fas fa-play mr-2"></i> Start Trip
+                            </button>`;
+        } else if (trip.status === 'ongoing') {
+            actionButtons = `<button onclick="completeTrip(${trip.id})" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                                <i class="fas fa-flag-checkered mr-2"></i> Complete Trip
+                            </button>`;
+        }
+        
+        document.getElementById('activeTripDetails').innerHTML = `
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <p class="text-gray-600 text-sm">Student</p>
+                    <p class="font-bold">${trip.student_name}</p>
+                    <p class="text-sm">📞 ${trip.student_phone}</p>
+                </div>
+                <div>
+                    <p class="text-gray-600 text-sm">Fare</p>
+                    <p class="text-2xl font-bold text-blue-600">₦${trip.total_fare}</p>
+                </div>
+                <div>
+                    <p class="text-gray-600 text-sm">Pickup</p>
+                    <p class="text-sm">${trip.pickup_address}</p>
+                </div>
+                <div>
+                    <p class="text-gray-600 text-sm">Dropoff</p>
+                    <p class="text-sm">${trip.dropoff_address}</p>
+                </div>
+            </div>
+            <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+                <p>Status: ${statusMessages[trip.status] || trip.status}</p>
+            </div>
+        `;
+        
+        document.getElementById('tripActionButtons').innerHTML = actionButtons;
+    }
+
+    async function markArrived(tripId) {
+        try {
+            const response = await fetch(`/driver/arrived/${tripId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            if (response.ok) {
+                showToastNotification('Success', 'Arrived at pickup!', 'success');
+                checkDriverActiveTrip();
+            }
+        } catch (error) {
+            showToastNotification('Error', 'Failed to update status', 'error');
+        }
+    }
+
+// async function acceptTrip(tripId) {
+//     try {
+//         const response = await fetch(`/api/trips/${tripId}/accept/`, {
+//             method: 'POST',
+//             headers: {
+//                 'Content-Type': 'application/json',
+//                 'X-CSRFToken': getCookie('csrftoken')
+//             }
+//         });
+        
+//         const data = await response.json();
+        
+//         if (response.ok) {
+//             showToastNotification('Success', 'Trip accepted!', 'success');
+//             loadRideRequests();
+//             loadCurrentTrip();
+//         } else {
+//             showToastNotification('Error', data.error || 'Failed to accept trip', 'error');
+//         }
+//     } catch (error) {
+//         showToastNotification('Error', 'Network error', 'error');
+//     }
+// }
+
+    // Make sure the button event listener is set up correctly
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Driver dashboard loaded');
+        
+        // Set up vehicle registration button
+        const registerBtn = document.getElementById('registerVehicleBtn');
+        if (registerBtn) {
+            // Remove any existing listeners to avoid duplicates
+            const newBtn = registerBtn.cloneNode(true);
+            registerBtn.parentNode.replaceChild(newBtn, registerBtn);
+            newBtn.addEventListener('click', registerVehicle);
+            console.log('Register button event attached');
+        }
+        
+        // Initialize all functions
+        checkVehicleStatus();
+        loadStats();
+        loadTripHistory();
+        loadCurrentTrip();
+        loadRideRequests();
+        connectDriverWebSocket();
+
+        loadAvailableRides();
+        checkDriverActiveTrip();
+        
+        // Refresh available rides every 10 seconds
+        setInterval(loadAvailableRides, 10000);
+        setInterval(checkDriverActiveTrip, 5000);
+        });
+    
+    // ========== DRIVER STATUS ==========
+    
+    async function toggleDriverStatus() {
+        const isCurrentlyAvailable = document.getElementById('statusBadge').innerText.includes('Online');
+        const newStatus = !isCurrentlyAvailable;
+        
+        try {
+            const response = await fetch('/driver/status/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ is_available: newStatus })
+            });
+            
+            if (response.ok) {
+                updateStatusUI(newStatus);
+                showToastNotification('Status Updated', `You are now ${newStatus ? 'online' : 'offline'}`, 'success');
+                if (newStatus) {
+                    loadRideRequests();
+                }
+            } else {
+                showToastNotification('Error', 'Failed to update status', 'error');
+            }
+        } catch (error) {
+            showToastNotification('Error', 'Network error. Please try again.', 'error');
+        }
+    }
+    
+    function updateStatusUI(isAvailable) {
+        const badge = document.getElementById('statusBadge');
+        const btn = document.getElementById('statusToggleBtn');
+        
+        if (isAvailable) {
+            badge.innerHTML = '<i class="fas fa-circle mr-1"></i> Online';
+            badge.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800';
+            btn.innerHTML = '<i class="fas fa-power-off mr-2"></i> Go Offline';
+            btn.className = 'px-4 py-2 rounded-lg text-white bg-red-600 hover:bg-red-700 transition';
+        } else {
+            badge.innerHTML = '<i class="fas fa-circle-stop mr-1"></i> Offline';
+            badge.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800';
+            btn.innerHTML = '<i class="fas fa-play mr-2"></i> Go Online';
+            btn.className = 'px-4 py-2 rounded-lg text-white bg-green-600 hover:bg-green-700 transition';
+        }
+    }
+    
+    // ========== WEB SOCKET CONNECTION ==========
+    
+    // function connectDriverWebSocket() {
+    //     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    //     const wsUrl = `${protocol}//${window.location.host}/ws/driver/{{ user.id }}/`;
+        
+    //     try {
+    //         ws = new WebSocket(wsUrl);
+            
+    //         ws.onopen = function() {
+    //             console.log('WebSocket connected');
+    //             startLocationTracking();
+    //         };
+            
+    //         ws.onmessage = function(event) {
+    //             try {
+    //                 const data = JSON.parse(event.data);
+    //                 console.log('WebSocket message:', data);
+    //                 if (data.type === 'new_ride_request') {
+    //                     showToastNotification('New Ride Request!', 'A new ride is available', 'ride');
+    //                     loadRideRequests();
+    //                 }
+    //             } catch (error) {
+    //                 console.error('Error parsing message:', error);
+    //             }
+    //         };
+            
+    //         ws.onclose = function() {
+    //             console.log('WebSocket disconnected');
+    //             setTimeout(connectDriverWebSocket, 3000);
+    //         };
+    //     } catch (error) {
+    //         console.error('WebSocket error:', error);
+    //     }
+    // }
+
+    // In driver/dashboard.html - Enhanced location tracking
+
+    let locationUpdateInterval = null;
+    let currentDriverTripId = null;
+
+    function startDriverLocationTracking() {
+        if (!navigator.geolocation) {
+            console.log('Geolocation not supported');
+            return;
+        }
+        
+        // Clear existing interval
+        if (locationUpdateInterval) {
+            clearInterval(locationUpdateInterval);
+        }
+        
+        // Send location every 3 seconds (more frequent for smoother tracking)
+        locationUpdateInterval = setInterval(() => {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    sendDriverLocation(position);
+                },
+                function(error) {
+                    console.error('Geolocation error:', error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                }
+            );
+        }, 3000);
+    }
+
+    function sendDriverLocation(position) {
+        if (!currentDriverTripId) return;
+        
+        const locationData = {
+            type: 'driver_location',
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            heading: position.coords.heading || 0,
+            speed: position.coords.speed || 0,
+            accuracy: position.coords.accuracy
+        };
+        
+        // Send via WebSocket if connected
+        if (driverWebSocket && driverWebSocket.readyState === WebSocket.OPEN) {
+            driverWebSocket.send(JSON.stringify(locationData));
+        }
+        
+        // Also send to backend API
+        fetch('/driver/location/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(locationData)
+        }).catch(err => console.error('Location API error:', err));
+    }
+
+    // When driver accepts a trip, store the trip ID and start tracking
+    async function acceptRide(tripId) {
+        try {
+            const response = await fetch(`/driver/accept-ride/${tripId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                currentDriverTripId = tripId;
+                startDriverLocationTracking();
+                showToastNotification('Success', 'Ride accepted! Navigation started', 'success');
+                checkDriverActiveTrip();
+            }
+        } catch (error) {
+            showToastNotification('Error', 'Failed to accept ride', 'error');
+        }
+    }
+
+    // Connect driver WebSocket for receiving updates
+    function connectDriverWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/driver/{{ user.id }}/`;
+        
+        driverWebSocket = new WebSocket(wsUrl);
+        
+        driverWebSocket.onopen = function() {
+            console.log('Driver WebSocket connected');
+        };
+        
+        driverWebSocket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            console.log('Driver WebSocket message:', data);
+            
+            if (data.type === 'ride_request') {
+                loadAvailableRides(); // Refresh available rides
+                showToastNotification('New Ride Request!', 'A student is looking for a ride', 'ride');
+            }
+        };
+        
+        driverWebSocket.onclose = function() {
+            console.log('Driver WebSocket disconnected');
+            setTimeout(connectDriverWebSocket, 3000);
+        };
+    }
+    
+    // ========== LOCATION TRACKING ==========
+    
+    // function startLocationTracking() {
+    //     if ("geolocation" in navigator) {
+    //         if (watchId) {
+    //             navigator.geolocation.clearWatch(watchId);
+    //         }
+            
+    //         watchId = navigator.geolocation.watchPosition(
+    //             function(position) {
+    //                 const locationData = {
+    //                     latitude: position.coords.latitude,
+    //                     longitude: position.coords.longitude,
+    //                     heading: position.coords.heading || 0,
+    //                     speed: position.coords.speed || 0
+    //                 };
+                    
+    //                 if (ws && ws.readyState === WebSocket.OPEN) {
+    //                     ws.send(JSON.stringify(locationData));
+    //                 }
+                    
+    //                 fetch('/driver/location/', {
+    //                     method: 'POST',
+    //                     headers: {
+    //                         'Content-Type': 'application/json',
+    //                         'X-CSRFToken': getCookie('csrftoken')
+    //                     },
+    //                     body: JSON.stringify(locationData)
+    //                 }).catch(err => console.error('Location update failed:', err));
+    //             },
+    //             function(error) {
+    //                 console.error('Geolocation error:', error);
+    //             },
+    //             {
+    //                 enableHighAccuracy: true,
+    //                 maximumAge: 0,
+    //                 timeout: 5000
+    //             }
+    //         );
+    //     }
+    // }
+
+    // In driver/dashboard.html
+    function startLocationTracking() {
+        if ("geolocation" in navigator) {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+            }
+            
+            watchId = navigator.geolocation.watchPosition(
+                function(position) {
+                    const locationData = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        heading: position.coords.heading || 0,
+                        speed: position.coords.speed || 0
+                    };
+                    
+                    console.log('Sending location:', locationData);
+                    
+                    // Send to backend
+                    fetch('/driver/location/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify(locationData)
+                    }).then(response => response.json())
+                    .then(data => console.log('Location update response:', data))
+                    .catch(err => console.error('Location update failed:', err));
+                },
+                function(error) {
+                    console.error('Geolocation error:', error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 5000
+                }
+            );
+        } else {
+            console.log('Geolocation not supported');
+        }
+    }
+    
+    // ========== RIDE REQUESTS ==========
+    
+    async function loadRideRequests() {
+        try {
+            const response = await fetch('/trips/?status=searching');
+            const data = await response.json();
+            const trips = data.trips || [];
+            const container = document.getElementById('rideRequests');
+            const countSpan = document.getElementById('requestCount');
+            
+            if (container) {
+                if (trips.length > 0) {
+                    if (countSpan) countSpan.textContent = trips.length;
+                    container.innerHTML = trips.map(trip => `
+                        <div class="border rounded-lg p-4 hover:shadow-md transition bg-yellow-50">
+                            <div class="flex justify-between items-start flex-wrap gap-3">
+                                <div class="flex-1">
+                                    <div class="flex items-center mb-2">
+                                        <i class="fas fa-circle-dot text-green-500 mr-2"></i>
+                                        <span class="font-medium">Pickup:</span>
+                                        <span class="ml-2 text-gray-700">${trip.pickup_address?.substring(0, 80) || 'N/A'}</span>
+                                    </div>
+                                    <div class="flex items-center mb-2">
+                                        <i class="fas fa-flag-checkered text-red-500 mr-2"></i>
+                                        <span class="font-medium">Dropoff:</span>
+                                        <span class="ml-2 text-gray-700">${trip.dropoff_address?.substring(0, 80) || 'N/A'}</span>
+                                    </div>
+                                    <div class="flex items-center gap-4 mt-2">
+                                        <span class="text-sm text-gray-500">
+                                            <i class="fas fa-clock mr-1"></i> ${new Date(trip.requested_at).toLocaleTimeString()}
+                                        </span>
+                                        <span class="text-lg font-bold text-blue-600">₦${trip.total_fare}</span>
+                                    </div>
+                                </div>
+                                <button onclick="acceptTrip(${trip.id})" 
+                                        class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition">
+                                    <i class="fas fa-check-circle mr-1"></i> Accept
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    if (countSpan) countSpan.textContent = '0';
+                    container.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-car-side text-4xl mb-2"></i>
+                            <p>No ride requests at the moment</p>
+                            <p class="text-sm">Go online to receive ride requests</p>
+                        </div>
+                    `;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading ride requests:', error);
+        }
+    }
+    
+    async function acceptTrip(tripId) {
+        try {
+            const response = await fetch(`/trips/${tripId}/accept/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                showToastNotification('Success', 'Trip accepted!', 'success');
+                loadRideRequests();
+                loadCurrentTrip();
+            } else {
+                showToastNotification('Error', data.error || 'Failed to accept trip', 'error');
+            }
+        } catch (error) {
+            showToastNotification('Error', 'Network error. Please try again.', 'error');
+        }
+    }
+    
+    // ========== ACTIVE TRIP MANAGEMENT ==========
+    
+    async function loadCurrentTrip() {
+        try {
+            const response = await fetch('/driver/current-trip/');
+            
+            if (response.status === 404) {
+                document.getElementById('activeTripCard')?.classList.add('hidden');
+                return;
+            }
+            
+            const trip = await response.json();
+            currentTripId = trip.id;
+            
+            document.getElementById('activeTripCard')?.classList.remove('hidden');
+            displayActiveTrip(trip);
+        } catch (error) {
+            console.error('Error loading current trip:', error);
+        }
+    }
+    
+    function displayActiveTrip(trip) {
+        const detailsDiv = document.getElementById('activeTripDetails');
+        const buttonsDiv = document.getElementById('tripActionButtons');
+        
+        if (detailsDiv) {
+            detailsDiv.innerHTML = `
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-gray-600 text-sm">Student</p>
+                        <p class="font-medium">${trip.student_name || 'Student'}</p>
+                        <p class="text-sm text-gray-500">📞 ${trip.student_phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600 text-sm">Fare</p>
+                        <p class="text-2xl font-bold text-blue-600">₦${trip.fare || trip.total_fare || '0'}</p>
+                    </div>
+                    <div class="md:col-span-2">
+                        <p class="text-gray-600 text-sm">Pickup</p>
+                        <p class="text-sm">${trip.pickup_address || 'N/A'}</p>
+                    </div>
+                    <div class="md:col-span-2">
+                        <p class="text-gray-600 text-sm">Dropoff</p>
+                        <p class="text-sm">${trip.dropoff_address || 'N/A'}</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        if (buttonsDiv) {
+            if (trip.status === 'accepted') {
+                buttonsDiv.innerHTML = `<button onclick="arriveAtPickup()" class="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700">I've Arrived at Pickup</button>`;
+            } else if (trip.status === 'arrived') {
+                buttonsDiv.innerHTML = `<button onclick="startTrip()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Start Trip</button>`;
+            } else if (trip.status === 'ongoing') {
+                buttonsDiv.innerHTML = `<button onclick="completeTrip()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Complete Trip</button>`;
+            } else {
+                buttonsDiv.innerHTML = '';
+            }
+        }
+    }
+
+    let availableRidesInterval = null;
+
+    async function loadAvailableRides() {
+        try {
+            const response = await fetch('/driver/available-rides/');
+            const data = await response.json();
+            const rides = data.rides || [];
+            
+            const container = document.getElementById('availableRides');
+            const countSpan = document.getElementById('requestCount');
+            
+            if (container) {
+                if (rides.length > 0) {
+                    if (countSpan) countSpan.textContent = rides.length;
+                    container.innerHTML = rides.map(ride => `
+                        <div class="border rounded-lg p-4 hover:shadow-md transition bg-yellow-50">
+                            <div class="flex justify-between items-start flex-wrap gap-3">
+                                <div class="flex-1">
+                                    <div class="flex items-center mb-2">
+                                        <i class="fas fa-user-circle text-gray-500 mr-2"></i>
+                                        <span class="font-medium">Student:</span>
+                                        <span class="ml-2 text-gray-700">${ride.student_name}</span>
+                                    </div>
+                                    <div class="flex items-center mb-2">
+                                        <i class="fas fa-circle-dot text-green-500 mr-2"></i>
+                                        <span class="font-medium">Pickup:</span>
+                                        <span class="ml-2 text-gray-700">${ride.pickup_address.substring(0, 80)}</span>
+                                    </div>
+                                    <div class="flex items-center mb-2">
+                                        <i class="fas fa-flag-checkered text-red-500 mr-2"></i>
+                                        <span class="font-medium">Dropoff:</span>
+                                        <span class="ml-2 text-gray-700">${ride.dropoff_address.substring(0, 80)}</span>
+                                    </div>
+                                    <div class="flex items-center gap-4 mt-2">
+                                        <span class="text-sm text-gray-500">
+                                            <i class="fas fa-clock mr-1"></i> ${new Date(ride.requested_at).toLocaleTimeString()}
+                                        </span>
+                                        <span class="text-lg font-bold text-blue-600">₦${ride.fare}</span>
+                                    </div>
+                                </div>
+                                <button onclick="acceptRide(${ride.id})" 
+                                        class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition">
+                                    <i class="fas fa-check-circle mr-1"></i> Accept
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    if (countSpan) countSpan.textContent = '0';
+                    container.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-car-side text-4xl mb-2"></i>
+                            <p>No ride requests at the moment</p>
+                            <p class="text-sm">Go online to receive ride requests</p>
+                        </div>
+                    `;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading rides:', error);
+        }
+    }
+    
+    async function arriveAtPickup() {
+        try {
+            const response = await fetch(`/trips/${currentTripId}/arrive/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            if (response.ok) {
+                showToastNotification('Success', 'Arrived at pickup', 'success');
+                loadCurrentTrip();
+            }
+        } catch (error) {
+            showToastNotification('Error', 'Failed to update status', 'error');
+        }
+    }
+    
+    async function startTrip() {
+        try {
+            const response = await fetch(`/trips/${currentTripId}/start/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            if (response.ok) {
+                showToastNotification('Success', 'Trip started', 'success');
+                loadCurrentTrip();
+            }
+        } catch (error) {
+            showToastNotification('Error', 'Failed to start trip', 'error');
+        }
+    }
+    
+    // async function completeTrip() {
+    //     if (!confirm('Complete this trip?')) return;
+    //     try {
+    //         const response = await fetch(`/trips/${currentTripId}/complete/`, {
+    //             method: 'POST',
+    //             headers: { 'X-CSRFToken': getCookie('csrftoken') }
+    //         });
+    //         if (response.ok) {
+    //             showToastNotification('Success', 'Trip completed!', 'success');
+    //             document.getElementById('activeTripCard')?.classList.add('hidden');
+    //             loadStats();
+    //             loadTripHistory();
+    //             loadRideRequests();
+    //         }
+    //     } catch (error) {
+    //         showToastNotification('Error', 'Failed to complete trip', 'error');
+    //     }
+    // }
+    
+
+    async function completeTrip() {
+        if (!currentTripId) {
+            // Try to get current trip first
+            const response = await fetch('/driver/active-trip/');
+            if (response.status === 404) {
+                showToastNotification('Error', 'No active trip found', 'error');
+                return;
+            }
+            const trip = await response.json();
+            currentTripId = trip.id;
+        }
+        
+        if (!confirm('Have you reached the destination? Mark this trip as complete?')) return;
+        
+        showToastNotification('Processing', 'Completing trip...', 'info');
+        
+        try {
+            const response = await fetch(`/trips/${currentTripId}/complete/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                showToastNotification('Success', data.message || 'Trip completed!', 'success');
+                
+                // Clear active trip display
+                document.getElementById('activeTripCard').classList.add('hidden');
+                document.getElementById('activeTripDetails').innerHTML = '';
+                document.getElementById('tripActionButtons').innerHTML = '';
+                
+                // Stop location tracking
+                if (locationUpdateInterval) {
+                    clearInterval(locationUpdateInterval);
+                    locationUpdateInterval = null;
+                }
+                
+                currentTripId = null;
+                
+                // Refresh all data
+                loadStats();
+                loadTripHistory();
+                loadRideRequests();
+                
+                // Reload page after 2 seconds to refresh dashboard
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                showToastNotification('Error', data.error || 'Failed to complete trip', 'error');
+            }
+        } catch (error) {
+            console.error('Complete trip error:', error);
+            showToastNotification('Error', 'Network error. Please try again.', 'error');
+        }
+    }
+    // ========== STATS & HISTORY ==========
+    
+    async function loadStats() {
+        try {
+            const response = await fetch('/driver/earnings/');
+            const data = await response.json();
+            document.getElementById('totalEarnings').textContent = `₦${data.total || 0}`;
+            document.getElementById('completedTrips').textContent = data.completed_trips || 0;
+            document.getElementById('driverRating').textContent = `${data.rating || 0}★`;
+            document.getElementById('todayEarnings').textContent = `₦${data.today || 0}`;
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    }
+    
+    async function loadTripHistory() {
+        try {
+            const response = await fetch('/trips/');
+            const data = await response.json();
+            const completedTrips = (data.trips || []).filter(t => t.status === 'completed').slice(0, 10);
+            const historyDiv = document.getElementById('tripHistory');
+            
+            if (historyDiv) {
+                if (completedTrips.length === 0) {
+                    historyDiv.innerHTML = `<div class="text-center py-8 text-gray-500"><p>No completed trips yet</p></div>`;
+                } else {
+                    historyDiv.innerHTML = completedTrips.map(trip => `
+                        <div class="border rounded-lg p-3 hover:bg-gray-50">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <p class="font-medium">${trip.pickup_address?.substring(0, 50)} → ${trip.dropoff_address?.substring(0, 50)}</p>
+                                    <p class="text-sm text-gray-500">${new Date(trip.completed_at || trip.requested_at).toLocaleDateString()}</p>
+                                </div>
+                                <p class="font-bold text-green-600">₦${trip.total_fare}</p>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+        } catch (error) {
+            console.error('Error loading trip history:', error);
+        }
+    }
+    
+    // ========== UTILITIES ==========
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    function showToastNotification(title, message, type) {
+        if (window.showToastNotification) {
+            window.showToastNotification(title, message, type);
+        } else {
+            alert(`${title}: ${message}`);
+        }
+    }
+</script>
 {% endblock %}
