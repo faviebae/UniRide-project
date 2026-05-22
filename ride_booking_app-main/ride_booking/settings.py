@@ -29,7 +29,15 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'n0AycxZhgPuoFINnu7hIxapKRLdZg1
 
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 # ALLOWED_HOSTS = ['*']
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'uniride.onrender.com,uniride-qjmg.onrender.com,localhost,127.0.0.1').split(',')
+
+CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://uniride-qjmg.onrender.com',
+    'http://uniride-qjmg.onrender.com',
+    'https://*.onrender.com',  # This allows all Render subdomains
+]
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'uniride.onrender.com,uniride-qjmg.onrender.com,localhost,127.0.0.1,*.onrender.com',).split(',')
 
 INSTALLED_APPS = [
     'daphne',  # Must be first for WebSocket support
