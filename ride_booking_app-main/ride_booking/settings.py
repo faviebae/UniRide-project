@@ -20,12 +20,14 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+# SECRET_KEY = 'django-insecure--bdinf%^kz*h6t2w+f5c#jjdzceo43!6^30lg51y8u^xb3g-m#'
+# SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure--bdinf%^kz*h6t2w+f5c#jjdzceo43!6^30lg51y8u^xb3g-m#')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'n0AycxZhgPuoFINnu7hIxapKRLdZg1-ur3Cib0A3tmCHHbNCUIhqTu2ZWCdoebCOmCc')
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure--bdinf%^kz*h6t2w+f5c#jjdzceo43!6^30lg51y8u^xb3g-m#'
 
-DEBUG = True
-ALLOWED_HOSTS = ['*']
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+# ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'uniride.onrender.com,localhost,127.0.0.1').split(',')
 
 INSTALLED_APPS = [
     'daphne',  # Must be first for WebSocket support
@@ -58,6 +60,7 @@ AUTH_USER_MODEL = 'users.User'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -152,16 +155,16 @@ SIMPLE_JWT = {
 }
 
 # CORS
-CORS_ALLOW_ALL_ORIGINS = True  # For development only
+CORS_ALLOW_ALL_ORIGINS = DEBUG  
 CORS_ALLOW_CREDENTIALS = True
 
 # Channels (WebSocket) - Use in-memory for development
 ASGI_APPLICATION = 'ride_booking.asgi.application'
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
-    },
-}
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels.layers.InMemoryChannelLayer',
+#     },
+# }
 
 # For production with Redis:
 # CHANNEL_LAYERS = {
@@ -172,6 +175,22 @@ CHANNEL_LAYERS = {
 #         },
 #     },
 # }
+
+if os.environ.get('REDIS_URL'):
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [os.environ.get('REDIS_URL')],
+            },
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }
 
 # Google Maps API
 # GOOGLE_MAPS_API_KEY = config('GOOGLE_MAPS_API_KEY', default='')
@@ -198,3 +217,10 @@ DEFAULT_FROM_EMAIL = 'UniRide <giftthomas78@gmail.com>'
 
 
 # GOOGLE_MAPS_API_KEY = 'AIzaSyA94UPeA1NSTfYRB5S9rrdOkCXQ6AyyrVk'
+
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
