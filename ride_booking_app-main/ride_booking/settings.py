@@ -29,7 +29,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'n0AycxZhgPuoFINnu7hIxapKRLdZg1
 
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 # ALLOWED_HOSTS = ['*']
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'uniride.onrender.com,localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'uniride.onrender.com,uniride-qjmg.onrender.com,localhost,127.0.0.1').split(',')
 
 INSTALLED_APPS = [
     'daphne',  # Must be first for WebSocket support
