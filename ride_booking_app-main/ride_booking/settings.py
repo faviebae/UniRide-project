@@ -225,7 +225,8 @@ RIDE_CONFIG = {
     'COMMISSION_PERCENTAGE': 15,
 }
 GOOGLE_MAPS_API_KEY = 'AIzaSyBmzxkIql_HGJdwgAO8WifF8E-RjIgNF7U'
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
 
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 # EMAIL_HOST = 'smtp.gmail.com'
