@@ -2,9 +2,9 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from .models import Trip, TripLocation
-from users.models import DriverProfile, User
 from django.utils import timezone
+
+# DO NOT import models at the top level - import inside methods instead
 
 class TripTrackingConsumer(AsyncWebsocketConsumer):
     """Handle real-time trip tracking for students"""
@@ -15,21 +15,37 @@ class TripTrackingConsumer(AsyncWebsocketConsumer):
         
         # Check if user is authorized (student or driver of this trip)
         user = self.scope['user']
-        trip = await self.get_trip()
         
         if not user.is_authenticated:
             await self.close()
-        elif user.role == 'student' and trip.student_id != user.id:
+            return
+        
+        # Import model inside the method
+        from .models import Trip
+        
+        try:
+            trip = await self.get_trip(self.trip_id)
+            if not trip:
+                await self.close()
+                return
+                
+            if user.role == 'student' and trip.student_id != user.id:
+                await self.close()
+                return
+            elif user.role == 'driver' and trip.driver_id != user.id:
+                await self.close()
+                return
+        except Exception as e:
+            print(f"Error in connect: {e}")
             await self.close()
-        elif user.role == 'driver' and trip.driver_id != user.id:
-            await self.close()
-        else:
-            # Join trip group
-            await self.channel_layer.group_add(
-                self.trip_group_name,
-                self.channel_name
-            )
-            await self.accept()
+            return
+        
+        # Join trip group
+        await self.channel_layer.group_add(
+            self.trip_group_name,
+            self.channel_name
+        )
+        await self.accept()
     
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(
@@ -84,57 +100,6 @@ class TripTrackingConsumer(AsyncWebsocketConsumer):
             'speed': event.get('speed'),
         }))
     
-    # async def trip_status(self, event):
-    #     """Send trip status update"""
-    #     await self.send(text_data=json.dumps({
-    #         'type': 'status_update',
-    #         'status': event['status'],
-    #         'message': event.get('message', ''),
-    #     }))
-
-    async def trip_status(self, event):
-        """Send trip status update to student"""
-        await self.send(text_data=json.dumps({
-            'type': 'notification',  # Changed to generic notification
-            'title': self.get_notification_title(event['status']),
-            'message': event.get('message', ''),
-            'status': event['status'],
-        }))
-    
-    def get_notification_title(self, status):
-        titles = {
-            'accepted': 'Driver Accepted',
-            'arrived': 'Driver Has Arrived', 
-            'ongoing': 'Trip Started',
-            'completed': 'Trip Completed',
-            'cancelled': 'Trip Cancelled'
-        }
-        return titles.get(status, 'Status Update')
-    
-    @database_sync_to_async
-    def get_trip(self):
-        return Trip.objects.get(id=self.trip_id)
-    
-    @database_sync_to_async
-    def save_trip_location(self, trip_id, lat, lng):
-        TripLocation.objects.create(
-            trip_id=trip_id,
-            latitude=lat,
-            longitude=lng
-        )
-    
-    @database_sync_to_async
-    def update_trip_status(self, trip_id, status):
-        trip = Trip.objects.get(id=trip_id)
-        trip.status = status
-        if status == 'accepted':
-            trip.accepted_at = timezone.now()
-        elif status == 'ongoing':
-            trip.started_at = timezone.now()
-        elif status == 'completed':
-            trip.completed_at = timezone.now()
-        trip.save()
-    
     async def trip_status(self, event):
         """Send trip status update to student"""
         await self.send(text_data=json.dumps({
@@ -153,6 +118,36 @@ class TripTrackingConsumer(AsyncWebsocketConsumer):
             'cancelled': 'Trip Cancelled'
         }
         return titles.get(status, 'Status Update')
+    
+    @database_sync_to_async
+    def get_trip(self, trip_id):
+        from .models import Trip
+        try:
+            return Trip.objects.get(id=trip_id)
+        except Trip.DoesNotExist:
+            return None
+    
+    @database_sync_to_async
+    def save_trip_location(self, trip_id, lat, lng):
+        from .models import TripLocation
+        TripLocation.objects.create(
+            trip_id=trip_id,
+            latitude=lat,
+            longitude=lng
+        )
+    
+    @database_sync_to_async
+    def update_trip_status(self, trip_id, status):
+        from .models import Trip
+        trip = Trip.objects.get(id=trip_id)
+        trip.status = status
+        if status == 'accepted':
+            trip.accepted_at = timezone.now()
+        elif status == 'ongoing':
+            trip.started_at = timezone.now()
+        elif status == 'completed':
+            trip.completed_at = timezone.now()
+        trip.save()
 
 
 class DriverLocationConsumer(AsyncWebsocketConsumer):
@@ -188,14 +183,15 @@ class DriverLocationConsumer(AsyncWebsocketConsumer):
                 data['latitude'],
                 data['longitude']
             )
-            
-            # This would broadcast to students looking for nearby drivers
-            # You can implement a geospatial broadcast system here
     
     @database_sync_to_async
     def update_driver_location(self, driver_id, lat, lng):
-        profile = DriverProfile.objects.get(user_id=driver_id)
-        profile.current_latitude = lat
-        profile.current_longitude = lng
-        profile.last_location_update = timezone.now()
-        profile.save()
+        from users.models import DriverProfile
+        try:
+            profile = DriverProfile.objects.get(user_id=driver_id)
+            profile.current_latitude = lat
+            profile.current_longitude = lng
+            profile.last_location_update = timezone.now()
+            profile.save()
+        except DriverProfile.DoesNotExist:
+            pass
