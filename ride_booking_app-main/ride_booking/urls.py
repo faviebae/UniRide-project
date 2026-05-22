@@ -18,6 +18,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenRefreshView
 from users.views import RegisterView, LoginView, UserProfileView
+from bookings.views import health_check
 
 urlpatterns = [
     # Admin
@@ -33,6 +34,8 @@ urlpatterns = [
     path('', include('bookings.urls')),  # This includes all booking app URLs
     path('', include('users.urls')),  # If you have users app URLs
     path('vehicles/', include('vehicles.urls')),  # If you have vehicles app URLs
+    path('health/', health_check, name='health_check'),
+
 ]
 
 # Serve media files in development

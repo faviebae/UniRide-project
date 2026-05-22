@@ -1640,3 +1640,8 @@ def get_driver_active_trip(request):
         })
     
     return JsonResponse({'has_active_trip': False}, status=404)
+
+@csrf_exempt
+def health_check(request):
+    # You can add a database check here later, but for now, just a simple response
+    return JsonResponse({"status": "ok"})
