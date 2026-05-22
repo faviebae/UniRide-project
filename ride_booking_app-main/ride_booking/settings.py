@@ -227,13 +227,13 @@ RIDE_CONFIG = {
 GOOGLE_MAPS_API_KEY = 'AIzaSyBmzxkIql_HGJdwgAO8WifF8E-RjIgNF7U'
 # EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'giftthomas78@gmail.com'
-EMAIL_HOST_PASSWORD = 'zwje dhcn noew gwae'
-DEFAULT_FROM_EMAIL = 'UniRide <giftthomas78@gmail.com>'
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'giftthomas78@gmail.com'
+# EMAIL_HOST_PASSWORD = 'zwje dhcn noew gwae'
+# DEFAULT_FROM_EMAIL = 'UniRide <giftthomas78@gmail.com>'
 
 
 # GOOGLE_MAPS_API_KEY = 'AIzaSyA94UPeA1NSTfYRB5S9rrdOkCXQ6AyyrVk'
