@@ -203,7 +203,6 @@ RIDE_CONFIG = {
     'SERVICE_FEE': 50,
     'COMMISSION_PERCENTAGE': 15,
 }
-# GOOGLE_MAPS_API_KEY = 'AIzaSyBSee-fXHV0M3sfBricYUM4n3e0m-3qKkw'
 GOOGLE_MAPS_API_KEY = 'AIzaSyBmzxkIql_HGJdwgAO8WifF8E-RjIgNF7U'
 # EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
