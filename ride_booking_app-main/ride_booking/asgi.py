@@ -73,29 +73,61 @@
 # })
 
 
+# import os
+# from django.core.asgi import get_asgi_application
+# from channels.routing import ProtocolTypeRouter, URLRouter
+# from channels.auth import AuthMiddlewareStack
+# from django.urls import path
+
+# os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ride_booking.settings')
+
+# # Import your consumers
+# from bookings.consumers import TripTrackingConsumer, DriverLocationConsumer 
+# from notifications.consumers import NotificationConsumer
+
+# # Define WebSocket URL patterns
+# websocket_urlpatterns = [
+#     path('ws/trip/<int:trip_id>/', TripTrackingConsumer.as_asgi()),
+#     path('ws/driver/<int:driver_id>/', DriverLocationConsumer.as_asgi()),
+#     path('ws/notifications/<int:user_id>/', NotificationConsumer.as_asgi()),
+# ]
+
+# # Main ASGI application
+# application = ProtocolTypeRouter({
+#     'http': get_asgi_application(),
+#     'websocket': AuthMiddlewareStack(
+#         URLRouter(websocket_urlpatterns)
+#     ),
+# })
+
+# ride_booking/asgi.py
 import os
 from django.core.asgi import get_asgi_application
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ride_booking.settings')
+
+# First, get the Django ASGI application
+django_asgi_app = get_asgi_application()
+
+# Now import channels-related modules after Django is ready
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from django.urls import path
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ride_booking.settings')
-
-# Import your consumers
-from bookings.consumers import TripTrackingConsumer, DriverLocationConsumer 
-from notifications.consumers import NotificationConsumer
-
-# Define WebSocket URL patterns
-websocket_urlpatterns = [
-    path('ws/trip/<int:trip_id>/', TripTrackingConsumer.as_asgi()),
-    path('ws/driver/<int:driver_id>/', DriverLocationConsumer.as_asgi()),
-    path('ws/notifications/<int:user_id>/', NotificationConsumer.as_asgi()),
-]
+# Lazy import consumers to avoid AppRegistryNotReady
+def get_websocket_urlpatterns():
+    from bookings.consumers import TripTrackingConsumer, DriverLocationConsumer
+    from notifications.consumers import NotificationConsumer
+    return [
+        path('ws/trip/<int:trip_id>/', TripTrackingConsumer.as_asgi()),
+        path('ws/driver/<int:driver_id>/', DriverLocationConsumer.as_asgi()),
+        path('ws/notifications/<int:user_id>/', NotificationConsumer.as_asgi()),
+    ]
 
 # Main ASGI application
 application = ProtocolTypeRouter({
-    'http': get_asgi_application(),
+    'http': django_asgi_app,
     'websocket': AuthMiddlewareStack(
-        URLRouter(websocket_urlpatterns)
+        URLRouter(get_websocket_urlpatterns())
     ),
 })
