@@ -50,13 +50,13 @@ class RegisterView(APIView):
                 # Log the user in after registration
                 login(request, user)
                 
-                # Redirect based on role
-                if user.role == 'student':
-                    return redirect('/student/dashboard/')
-                elif user.role == 'driver':
-                    return redirect('/driver/dashboard/')
-                else:
-                    return redirect('/')
+                # # Redirect based on role
+                # if user.role == 'student':
+                #     return redirect('/student/dashboard/')
+                # elif user.role == 'driver':
+                #     return redirect('/driver/dashboard/')
+                # else:
+                return redirect('/')
             except Exception as e:
                 messages.error(request, f'Registration error: {str(e)}')
                 return render(request, 'register.html', {
