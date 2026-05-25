@@ -116,12 +116,14 @@ from django.urls import path
 
 # Lazy import consumers to avoid AppRegistryNotReady
 def get_websocket_urlpatterns():
-    from bookings.consumers import TripTrackingConsumer, DriverLocationConsumer
+    from bookings.consumers import TripTrackingConsumer, DriverLocationConsumer, RideUpdateConsumer
     from notifications.consumers import NotificationConsumer
     return [
         path('ws/trip/<int:trip_id>/', TripTrackingConsumer.as_asgi()),
         path('ws/driver/<int:driver_id>/', DriverLocationConsumer.as_asgi()),
         path('ws/notifications/<int:user_id>/', NotificationConsumer.as_asgi()),
+        path('ws/updates/', RideUpdateConsumer.as_asgi()),  # Add this line
+
     ]
 
 # Main ASGI application

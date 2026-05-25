@@ -195,3 +195,163 @@ class DriverLocationConsumer(AsyncWebsocketConsumer):
             profile.save()
         except DriverProfile.DoesNotExist:
             pass
+
+
+
+class RideUpdateConsumer(AsyncWebsocketConsumer):
+    """Real-time dashboard updates for both students and drivers"""
+    
+    async def connect(self):
+        self.user = self.scope['user']
+        
+        if not self.user.is_authenticated:
+            await self.close()
+            return
+        
+        # Create a unique group for this user
+        self.group_name = f'user_{self.user.id}'
+        
+        # Join group
+        await self.channel_layer.group_add(
+            self.group_name,
+            self.channel_name
+        )
+        await self.accept()
+        
+        # Send initial data immediately
+        await self.send_initial_data()
+    
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(
+            self.group_name,
+            self.channel_name
+        )
+    
+    async def receive(self, text_data):
+        """Handle messages from client (like refresh requests)"""
+        try:
+            data = json.loads(text_data)
+            if data.get('type') == 'refresh':
+                await self.send_initial_data()
+        except:
+            pass
+    
+    async def send_initial_data(self):
+        """Send current dashboard data to the connected user"""
+        if self.user.role == 'student':
+            data = await self.get_student_data()
+        elif self.user.role == 'driver':
+            data = await self.get_driver_data()
+        else:
+            data = {}
+        
+        await self.send(text_data=json.dumps({
+            'type': 'dashboard_update',
+            'data': data
+        }))
+    
+    async def dashboard_update(self, event):
+        """Send dashboard update to user"""
+        await self.send(text_data=json.dumps({
+            'type': 'dashboard_update',
+            'data': event['data']
+        }))
+    
+    @database_sync_to_async
+    def get_student_data(self):
+        from django.db.models import Sum
+        from .models import Trip
+        
+        # Get active trip
+        active_trip = Trip.objects.filter(
+            student=self.user,
+            status__in=['searching', 'accepted', 'arrived', 'ongoing']
+        ).first()
+        
+        # Get completed trips stats
+        completed_trips = Trip.objects.filter(
+            student=self.user,
+            status='completed'
+        )
+        
+        total_trips = completed_trips.count()
+        total_spent = completed_trips.aggregate(Sum('total_fare'))['total_fare__sum'] or 0
+        
+        active_trip_data = None
+        if active_trip:
+            active_trip_data = {
+                'id': active_trip.id,
+                'status': active_trip.status,
+                'pickup_address': active_trip.pickup_address,
+                'dropoff_address': active_trip.dropoff_address,
+                'total_fare': str(active_trip.total_fare),
+            }
+            if active_trip.driver:
+                active_trip_data['driver_name'] = active_trip.driver.get_full_name()
+                active_trip_data['driver_phone'] = str(active_trip.driver.phone_number)
+        
+        return {
+            'total_trips': total_trips,
+            'total_spent': float(total_spent),
+            'wallet_balance': float(self.user.wallet_balance),
+            'active_trip': active_trip_data,
+            'role': 'student',
+        }
+    
+    @database_sync_to_async
+    def get_driver_data(self):
+        from django.db.models import Sum
+        from .models import Trip
+        
+        # Get active trip
+        active_trip = Trip.objects.filter(
+            driver=self.user,
+            status__in=['accepted', 'arrived', 'ongoing']
+        ).first()
+        
+        # Get available ride requests (unassigned, searching)
+        available_rides = Trip.objects.filter(
+            status='searching',
+            driver__isnull=True
+        ).select_related('student').order_by('-requested_at')[:10]
+        
+        # Get completed trips stats
+        completed_trips = Trip.objects.filter(
+            driver=self.user,
+            status='completed'
+        )
+        
+        total_earnings = completed_trips.aggregate(Sum('total_fare'))['total_fare__sum'] or 0
+        completed_count = completed_trips.count()
+        
+        active_trip_data = None
+        if active_trip:
+            active_trip_data = {
+                'id': active_trip.id,
+                'status': active_trip.status,
+                'pickup_address': active_trip.pickup_address,
+                'dropoff_address': active_trip.dropoff_address,
+                'total_fare': str(active_trip.total_fare),
+                'student_name': active_trip.student.get_full_name(),
+                'student_phone': str(active_trip.student.phone_number),
+            }
+        
+        available_rides_data = []
+        for ride in available_rides:
+            available_rides_data.append({
+                'id': ride.id,
+                'pickup_address': ride.pickup_address,
+                'dropoff_address': ride.dropoff_address,
+                'total_fare': str(ride.total_fare),
+                'student_name': ride.student.get_full_name(),
+                'requested_at': ride.requested_at.isoformat(),
+            })
+        
+        return {
+            'active_trip': active_trip_data,
+            'available_rides': available_rides_data,
+            'total_earnings': float(total_earnings),
+            'completed_trips': completed_count,
+            'is_available': self.user.is_available,
+            'role': 'driver',
+        }

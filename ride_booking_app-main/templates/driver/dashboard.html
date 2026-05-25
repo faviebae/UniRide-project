@@ -244,7 +244,7 @@
         loadTripHistory();
         loadCurrentTrip();
         loadRideRequests();
-        connectDriverWebSocket();
+        // connectDriverWebSocket();
         
         // Set up vehicle registration button click handler
         const registerBtn = document.getElementById('registerVehicleBtn');
@@ -798,7 +798,7 @@
         loadTripHistory();
         loadCurrentTrip();
         loadRideRequests();
-        connectDriverWebSocket();
+        // connectDriverWebSocket();
 
         loadAvailableRides();
         checkDriverActiveTrip();
@@ -977,32 +977,32 @@
         }
     }
 
-    // Connect driver WebSocket for receiving updates
-    function connectDriverWebSocket() {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws/driver/{{ user.id }}/`;
+    // // Connect driver WebSocket for receiving updates
+    // function connectDriverWebSocket() {
+    //     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    //     const wsUrl = `${protocol}//${window.location.host}/ws/driver/{{ user.id }}/`;
         
-        driverWebSocket = new WebSocket(wsUrl);
+    //     driverWebSocket = new WebSocket(wsUrl);
         
-        driverWebSocket.onopen = function() {
-            console.log('Driver WebSocket connected');
-        };
+    //     driverWebSocket.onopen = function() {
+    //         console.log('Driver WebSocket connected');
+    //     };
         
-        driverWebSocket.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            console.log('Driver WebSocket message:', data);
+    //     driverWebSocket.onmessage = function(event) {
+    //         const data = JSON.parse(event.data);
+    //         console.log('Driver WebSocket message:', data);
             
-            if (data.type === 'ride_request') {
-                loadAvailableRides(); // Refresh available rides
-                showToastNotification('New Ride Request!', 'A student is looking for a ride', 'ride');
-            }
-        };
+    //         if (data.type === 'ride_request') {
+    //             loadAvailableRides(); // Refresh available rides
+    //             showToastNotification('New Ride Request!', 'A student is looking for a ride', 'ride');
+    //         }
+    //     };
         
-        driverWebSocket.onclose = function() {
-            console.log('Driver WebSocket disconnected');
-            setTimeout(connectDriverWebSocket, 3000);
-        };
-    }
+    //     driverWebSocket.onclose = function() {
+    //         console.log('Driver WebSocket disconnected');
+    //         setTimeout(connectDriverWebSocket, 3000);
+    //     };
+    // }
     
     // ========== LOCATION TRACKING ==========
     
@@ -1474,5 +1474,109 @@
             alert(`${title}: ${message}`);
         }
     }
+    let dashboardSocket = null;
+
+    function connectDashboardWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/updates/`;
+        
+        dashboardSocket = new WebSocket(wsUrl);
+        
+        dashboardSocket.onopen = function() {
+            console.log('Dashboard WebSocket connected');
+        };
+        
+        dashboardSocket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.type === 'dashboard_update') {
+                updateDashboardWithData(data.data);
+            }
+        };
+        
+        dashboardSocket.onclose = function() {
+            console.log('Dashboard WebSocket disconnected, reconnecting...');
+            setTimeout(connectDashboardWebSocket, 3000);
+        };
+    }
+
+    // Create update functions for each dashboard
+    function updateDashboardWithData(data) {
+        if (data.role === 'student') {
+            // Update student dashboard
+            document.getElementById('totalTrips').textContent = data.total_trips || 0;
+            document.getElementById('totalSpent').textContent = `₦${(data.total_spent || 0).toFixed(2)}`;
+            document.getElementById('walletBalance').textContent = `₦${(data.wallet_balance || 0).toFixed(2)}`;
+            
+            // Handle active trip display
+            const bookingForm = document.getElementById('bookingForm');
+            const activeTripSection = document.getElementById('activeTripSection');
+            
+            if (data.active_trip) {
+                bookingForm.classList.add('hidden');
+                activeTripSection.classList.remove('hidden');
+                displayActiveTrip(data.active_trip);
+            } else {
+                bookingForm.classList.remove('hidden');
+                activeTripSection.classList.add('hidden');
+            }
+        } 
+        else if (data.role === 'driver') {
+            // Update driver dashboard
+            document.getElementById('totalEarnings').textContent = `₦${(data.total_earnings || 0).toFixed(2)}`;
+            document.getElementById('completedTrips').textContent = data.completed_trips || 0;
+            
+            // Update online status display
+            const statusBadge = document.getElementById('statusBadge');
+            if (data.is_available) {
+                statusBadge.innerHTML = '<i class="fas fa-circle mr-1"></i> Online';
+                statusBadge.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800';
+            } else {
+                statusBadge.innerHTML = '<i class="fas fa-circle-stop mr-1"></i> Offline';
+                statusBadge.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800';
+            }
+            
+            // Update available rides
+            const rideRequestsContainer = document.getElementById('rideRequests');
+            if (rideRequestsContainer) {
+                if (data.available_rides && data.available_rides.length > 0) {
+                    rideRequestsContainer.innerHTML = data.available_rides.map(ride => `
+                        <div class="border rounded-lg p-4 hover:shadow-md transition bg-yellow-50">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="font-medium">Student: ${ride.student_name}</p>
+                                    <p class="text-sm">Pickup: ${ride.pickup_address}</p>
+                                    <p class="text-sm">Dropoff: ${ride.dropoff_address}</p>
+                                    <p class="text-lg font-bold text-blue-600 mt-2">₦${ride.total_fare}</p>
+                                </div>
+                                <button onclick="acceptTrip(${ride.id})" class="bg-green-600 text-white px-4 py-2 rounded-lg">
+                                    Accept
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                    document.getElementById('requestCount').textContent = data.available_rides.length;
+                } else {
+                    rideRequestsContainer.innerHTML = '<div class="text-center py-8">No ride requests available</div>';
+                    document.getElementById('requestCount').textContent = '0';
+                }
+            }
+            
+            // Update active trip section
+            const activeTripCard = document.getElementById('activeTripCard');
+            if (data.active_trip) {
+                activeTripCard.classList.remove('hidden');
+                displayActiveTrip(data.active_trip);
+            } else {
+                activeTripCard.classList.add('hidden');
+            }
+        }
+    }
+
+    // Connect on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if user.is_authenticated %}
+            connectDashboardWebSocket();
+        {% endif %}
+    });
 </script>
 {% endblock %}

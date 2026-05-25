@@ -17,6 +17,76 @@ from django.db.models import Count, Sum, Q
 from django.utils import timezone
 from datetime import timedelta, datetime
 
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
+def broadcast_ride_update(trip):
+    """Broadcast ride update to both student and driver"""
+    channel_layer = get_channel_layer()
+    
+    # Prepare data for student
+    student_data = {
+        'role': 'student',
+        'active_trip': {
+            'id': trip.id,
+            'status': trip.status,
+            'status_display': trip.get_status_display(),
+            'pickup_address': trip.pickup_address,
+            'dropoff_address': trip.dropoff_address,
+            'total_fare': str(trip.total_fare),
+        }
+    }
+    
+    if trip.driver:
+        student_data['active_trip']['driver_name'] = trip.driver.get_full_name()
+        student_data['active_trip']['driver_phone'] = str(trip.driver.phone_number)
+    
+    # Send to student
+    async_to_sync(channel_layer.group_send)(
+        f'user_{trip.student.id}',
+        {
+            'type': 'dashboard_update',
+            'data': student_data
+        }
+    )
+    
+    # If driver exists, send update to driver
+    if trip.driver:
+        driver_data = {
+            'role': 'driver',
+            'active_trip': {
+                'id': trip.id,
+                'status': trip.status,
+                'pickup_address': trip.pickup_address,
+                'dropoff_address': trip.dropoff_address,
+                'total_fare': str(trip.total_fare),
+                'student_name': trip.student.get_full_name(),
+                'student_phone': str(trip.student.phone_number),
+            },
+            'is_available': trip.driver.is_available,
+        }
+        
+        async_to_sync(channel_layer.group_send)(
+            f'user_{trip.driver.id}',
+            {
+                'type': 'dashboard_update',
+                'data': driver_data
+            }
+        )
+    
+    # Also broadcast to all drivers that a ride was accepted (refresh available rides)
+    if trip.status == 'accepted':
+        from users.models import User
+        drivers = User.objects.filter(role='driver', is_available=True)
+        for driver in drivers:
+            async_to_sync(channel_layer.group_send)(
+                f'user_{driver.id}',
+                {
+                    'type': 'dashboard_update',
+                    'data': {'role': 'driver', 'refresh_available_rides': True}
+                }
+            )
+
 # def index(request):
 #     """Landing page"""
 #     if request.user.is_authenticated:
@@ -1001,6 +1071,33 @@ def nearby_drivers(request):
     return JsonResponse({'drivers': drivers_data[:20]}, status=200)  # Limit to 20 drivers
 
 
+# @login_required
+# @csrf_exempt
+# def accept_trip(request, trip_id):
+#     """Driver accepts a trip"""
+#     if request.user.role != 'driver':
+#         return JsonResponse({'error': 'Only drivers can accept trips'}, status=403)
+    
+#     trip = get_object_or_404(Trip, id=trip_id)
+    
+#     if trip.status != 'searching':
+#         return JsonResponse({'error': 'Trip is no longer available'}, status=400)
+    
+#     trip.driver = request.user
+#     trip.status = 'accepted'
+#     trip.accepted_at = timezone.now()
+#     trip.save()
+    
+#     # Update driver availability
+#     request.user.is_available = False
+#     request.user.save()
+    
+#     return JsonResponse({
+#         'message': 'Trip accepted successfully',
+#         'trip_id': trip.id,
+#         'status': trip.status
+#     })
+
 @login_required
 @csrf_exempt
 def accept_trip(request, trip_id):
@@ -1013,6 +1110,7 @@ def accept_trip(request, trip_id):
     if trip.status != 'searching':
         return JsonResponse({'error': 'Trip is no longer available'}, status=400)
     
+    # Accept the trip
     trip.driver = request.user
     trip.status = 'accepted'
     trip.accepted_at = timezone.now()
@@ -1021,34 +1119,40 @@ def accept_trip(request, trip_id):
     # Update driver availability
     request.user.is_available = False
     request.user.save()
+    if hasattr(request.user, 'driver_profile'):
+        request.user.driver_profile.is_available = False
+        request.user.driver_profile.save()
+    
+    # Broadcast the update to both student and driver
+    broadcast_ride_update(trip)
     
     return JsonResponse({
         'message': 'Trip accepted successfully',
         'trip_id': trip.id,
         'status': trip.status
-    })
+    }, status=200)
 
-@login_required
-@csrf_exempt
-def start_trip(request, trip_id):
-    """Driver starts the trip"""
-    if request.user.role != 'driver':
-        return JsonResponse({'error': 'Only drivers can start trips'}, status=403)
+# @login_required
+# @csrf_exempt
+# def start_trip(request, trip_id):
+#     """Driver starts the trip"""
+#     if request.user.role != 'driver':
+#         return JsonResponse({'error': 'Only drivers can start trips'}, status=403)
     
-    trip = get_object_or_404(Trip, id=trip_id, driver=request.user)
+#     trip = get_object_or_404(Trip, id=trip_id, driver=request.user)
     
-    if trip.status != 'arrived':
-        return JsonResponse({'error': 'Cannot start trip yet. Must arrive at pickup first.'}, status=400)
+#     if trip.status != 'arrived':
+#         return JsonResponse({'error': 'Cannot start trip yet. Must arrive at pickup first.'}, status=400)
     
-    trip.status = 'ongoing'
-    trip.started_at = timezone.now()
-    trip.save()
+#     trip.status = 'ongoing'
+#     trip.started_at = timezone.now()
+#     trip.save()
     
-    return JsonResponse({
-        'message': 'Trip started',
-        'trip_id': trip.id,
-        'status': trip.status
-    })
+#     return JsonResponse({
+#         'message': 'Trip started',
+#         'trip_id': trip.id,
+#         'status': trip.status
+#     })
 
 # @login_required
 # @csrf_exempt
@@ -1078,6 +1182,134 @@ def start_trip(request, trip_id):
 #     })
 
 
+# @login_required
+# @csrf_exempt
+# def complete_trip(request, trip_id):
+#     """Driver completes the trip"""
+#     if request.user.role != 'driver':
+#         return JsonResponse({'error': 'Only drivers can complete trips'}, status=403)
+    
+#     trip = get_object_or_404(Trip, id=trip_id, driver=request.user)
+    
+#     # Allow completion from any status (for testing/development)
+#     # In production, you might want to restrict to only 'ongoing'
+#     if trip.status not in ['ongoing', 'arrived', 'accepted']:
+#         return JsonResponse({'error': f'Trip cannot be completed from status: {trip.status}'}, status=400)
+    
+#     # Update trip
+#     trip.status = 'completed'
+#     trip.completed_at = timezone.now()
+#     trip.is_paid = True
+#     trip.save()
+    
+#     # Update driver availability back to available
+#     request.user.is_available = True
+#     request.user.save()
+    
+#     # Update driver profile if exists
+#     if hasattr(request.user, 'driver_profile'):
+#         profile = request.user.driver_profile
+#         profile.is_available = True
+#         profile.total_trips += 1
+#         profile.total_earnings += trip.total_fare
+#         profile.save()
+    
+#     # Update student profile
+#     if hasattr(trip.student, 'student_profile'):
+#         student_profile = trip.student.student_profile
+#         student_profile.total_trips += 1
+#         student_profile.total_spent += trip.total_fare
+#         student_profile.save()
+    
+#     # Send notification via WebSocket
+#     try:
+#         from channels.layers import get_channel_layer
+#         from asgiref.sync import async_to_sync
+#         channel_layer = get_channel_layer()
+        
+#         # Notify student
+#         async_to_sync(channel_layer.group_send)(
+#             f'notifications_{trip.student.id}',
+#             {
+#                 'type': 'send_notification',
+#                 'title': 'Trip Completed',
+#                 'message': f'Your trip has been completed. Thank you for riding with us!',
+#                 'notification_type': 'ride_completed',
+#             }
+#         )
+        
+#         # Notify driver (if they have notifications)
+#         async_to_sync(channel_layer.group_send)(
+#             f'notifications_{request.user.id}',
+#             {
+#                 'type': 'send_notification',
+#                 'title': 'Trip Completed',
+#                 'message': f'Trip #{trip.id} completed. You earned ₦{trip.total_fare}',
+#                 'notification_type': 'ride_completed',
+#             }
+#         )
+#     except Exception as e:
+#         print(f"WebSocket notification error: {e}")
+    
+#     return JsonResponse({
+#         'message': 'Trip completed successfully',
+#         'trip_id': trip.id,
+#         'status': trip.status,
+#         'fare': str(trip.total_fare)
+#     }, status=200)
+
+@login_required
+@csrf_exempt
+def arrive_at_pickup(request, trip_id):
+    """Driver arrives at pickup location"""
+    if request.user.role != 'driver':
+        return JsonResponse({'error': 'Only drivers can update arrival'}, status=403)
+    
+    trip = get_object_or_404(Trip, id=trip_id, driver=request.user)
+    
+    if trip.status != 'accepted':
+        return JsonResponse({'error': 'Trip must be accepted first'}, status=400)
+    
+    trip.status = 'arrived'
+    trip.arrived_at = timezone.now()
+    trip.save()
+    
+    # Broadcast the update
+    broadcast_ride_update(trip)
+    
+    return JsonResponse({
+        'message': 'Arrived at pickup location',
+        'trip_id': trip.id,
+        'status': trip.status
+    }, status=200)
+
+
+@login_required
+@csrf_exempt
+def start_trip(request, trip_id):
+    """Driver starts the trip"""
+    if request.user.role != 'driver':
+        return JsonResponse({'error': 'Only drivers can start trips'}, status=403)
+    
+    trip = get_object_or_404(Trip, id=trip_id, driver=request.user)
+    
+    if trip.status != 'arrived':
+        return JsonResponse({'error': 'Cannot start trip yet. Must arrive at pickup first.'}, status=400)
+    
+    trip.status = 'ongoing'
+    trip.started_at = timezone.now()
+    trip.save()
+    
+    # Broadcast the update
+    broadcast_ride_update(trip)
+    
+    return JsonResponse({
+        'message': 'Trip started',
+        'trip_id': trip.id,
+        'status': trip.status
+    }, status=200)
+
+
 @login_required
 @csrf_exempt
 def complete_trip(request, trip_id):
@@ -1087,12 +1319,9 @@ def complete_trip(request, trip_id):
     
     trip = get_object_or_404(Trip, id=trip_id, driver=request.user)
     
-    # Allow completion from any status (for testing/development)
-    # In production, you might want to restrict to only 'ongoing'
     if trip.status not in ['ongoing', 'arrived', 'accepted']:
         return JsonResponse({'error': f'Trip cannot be completed from status: {trip.status}'}, status=400)
     
-    # Update trip
     trip.status = 'completed'
     trip.completed_at = timezone.now()
     trip.is_paid = True
@@ -1102,7 +1331,6 @@ def complete_trip(request, trip_id):
     request.user.is_available = True
     request.user.save()
     
-    # Update driver profile if exists
     if hasattr(request.user, 'driver_profile'):
         profile = request.user.driver_profile
         profile.is_available = True
@@ -1110,42 +1338,14 @@ def complete_trip(request, trip_id):
         profile.total_earnings += trip.total_fare
         profile.save()
     
-    # Update student profile
     if hasattr(trip.student, 'student_profile'):
         student_profile = trip.student.student_profile
         student_profile.total_trips += 1
         student_profile.total_spent += trip.total_fare
         student_profile.save()
     
-    # Send notification via WebSocket
-    try:
-        from channels.layers import get_channel_layer
-        from asgiref.sync import async_to_sync
-        channel_layer = get_channel_layer()
-        
-        # Notify student
-        async_to_sync(channel_layer.group_send)(
-            f'notifications_{trip.student.id}',
-            {
-                'type': 'send_notification',
-                'title': 'Trip Completed',
-                'message': f'Your trip has been completed. Thank you for riding with us!',
-                'notification_type': 'ride_completed',
-            }
-        )
-        
-        # Notify driver (if they have notifications)
-        async_to_sync(channel_layer.group_send)(
-            f'notifications_{request.user.id}',
-            {
-                'type': 'send_notification',
-                'title': 'Trip Completed',
-                'message': f'Trip #{trip.id} completed. You earned ₦{trip.total_fare}',
-                'notification_type': 'ride_completed',
-            }
-        )
-    except Exception as e:
-        print(f"WebSocket notification error: {e}")
+    # Broadcast the update
+    broadcast_ride_update(trip)
     
     return JsonResponse({
         'message': 'Trip completed successfully',
@@ -1210,27 +1410,27 @@ def update_driver_status(request):
         return JsonResponse({'error': str(e)}, status=400)
 
 
-@login_required
-@csrf_exempt
-def arrive_at_pickup(request, trip_id):
-    """Driver arrives at pickup location"""
-    if request.user.role != 'driver':
-        return JsonResponse({'error': 'Only drivers can update arrival'}, status=403)
+# @login_required
+# @csrf_exempt
+# def arrive_at_pickup(request, trip_id):
+#     """Driver arrives at pickup location"""
+#     if request.user.role != 'driver':
+#         return JsonResponse({'error': 'Only drivers can update arrival'}, status=403)
     
-    trip = get_object_or_404(Trip, id=trip_id, driver=request.user)
+#     trip = get_object_or_404(Trip, id=trip_id, driver=request.user)
     
-    if trip.status != 'accepted':
-        return JsonResponse({'error': 'Trip must be accepted first'}, status=400)
+#     if trip.status != 'accepted':
+#         return JsonResponse({'error': 'Trip must be accepted first'}, status=400)
     
-    trip.status = 'arrived'
-    trip.arrived_at = timezone.now()
-    trip.save()
+#     trip.status = 'arrived'
+#     trip.arrived_at = timezone.now()
+#     trip.save()
     
-    return JsonResponse({
-        'message': 'Arrived at pickup location',
-        'trip_id': trip.id,
-        'status': trip.status
-    })
+#     return JsonResponse({
+#         'message': 'Arrived at pickup location',
+#         'trip_id': trip.id,
+#         'status': trip.status
+#     })
 
 # @login_required
 # @csrf_exempt
@@ -1683,3 +1883,4 @@ def get_driver_active_trip(request):
 def health_check(request):
     # You can add a database check here later, but for now, just a simple response
     return JsonResponse({"status": "ok"})
+
