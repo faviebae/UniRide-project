@@ -117,17 +117,39 @@ TEMPLATES = [
 #     }
 # }
 
-DATABASES = {
-    'default': dj_database_url.config(
-        default='sqlite:///db.sqlite3',
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-}
+# DATABASES = {
+#     'default': dj_database_url.config(
+#         default='sqlite:///db.sqlite3',
+#         conn_max_age=600,
+#         conn_health_checks=True,
+#     )
+# }
 
-# For GeoDjango on Render (PostGIS)
-if os.environ.get('DATABASE_URL', '').startswith('postgres'):
+# # For GeoDjango on Render (PostGIS)
+# if os.environ.get('DATABASE_URL', '').startswith('postgres'):
+#     DATABASES['default']['ENGINE'] = 'django.contrib.gis.db.backends.postgis'
+
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+    # Production: Use PostgreSQL
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+    # For PostGIS support (if needed)
     DATABASES['default']['ENGINE'] = 'django.contrib.gis.db.backends.postgis'
+else:
+    # Local development: Use SQLite
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},

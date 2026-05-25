@@ -485,22 +485,60 @@ def admin_trip_locations(request, trip_id):
 #     return JsonResponse({'trips': trips_data}, status=200)
 
 
+# @login_required
+# def trip_list(request):
+#     """API endpoint to list trips with optional status filter"""
+#     # Get status filter from query params
+#     status_filter = request.GET.get('status')
+    
+#     # Base queryset based on user role
+#     if request.user.role == 'student':
+#         trips = Trip.objects.filter(student=request.user)
+#     elif request.user.role == 'driver':
+#         trips = Trip.objects.filter(driver=request.user)
+#     else:
+#         trips = Trip.objects.all()
+    
+#     # Apply status filter if provided
+#     if status_filter:
+#         trips = trips.filter(status=status_filter)
+    
+#     trips_data = []
+#     for trip in trips:
+#         trips_data.append({
+#             'id': trip.id,
+#             'pickup_address': trip.pickup_address,
+#             'dropoff_address': trip.dropoff_address,
+#             'status': trip.status,
+#             'total_fare': str(trip.total_fare),
+#             'requested_at': trip.requested_at.isoformat(),
+#             'completed_at': trip.completed_at.isoformat() if trip.completed_at else None,
+#             'driver_name': trip.driver.get_full_name() if trip.driver else None,
+#             'student_name': trip.student.get_full_name() if trip.student else None,
+#         })
+    
+#     return JsonResponse({'trips': trips_data}, status=200)
+
+
 @login_required
 def trip_list(request):
     """API endpoint to list trips with optional status filter"""
-    # Get status filter from query params
     status_filter = request.GET.get('status')
     
     # Base queryset based on user role
     if request.user.role == 'student':
         trips = Trip.objects.filter(student=request.user)
     elif request.user.role == 'driver':
-        trips = Trip.objects.filter(driver=request.user)
+        # For drivers requesting 'searching' status, show unassigned trips
+        if status_filter == 'searching':
+            trips = Trip.objects.filter(status='searching', driver__isnull=True)
+        else:
+            trips = Trip.objects.filter(driver=request.user)
     else:
         trips = Trip.objects.all()
     
-    # Apply status filter if provided
-    if status_filter:
+    # Apply status filter if provided and not already applied
+    if status_filter and status_filter != 'searching':
         trips = trips.filter(status=status_filter)
     
     trips_data = []
