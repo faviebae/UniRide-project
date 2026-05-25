@@ -710,11 +710,73 @@
     // }
 
 
+    // async function bookRide() {
+    //     if (!pickupLocation || !destinationLocation) {
+    //         showToast('Please select pickup and destination', 'warning');
+    //         return;
+    //     }
+        
+    //     const fare = parseFloat(document.getElementById('estimatedFare').textContent);
+    //     const distance = parseFloat(document.getElementById('distance').textContent);
+    //     const duration = parseFloat(document.getElementById('duration').textContent);
+        
+    //     const bookBtn = document.getElementById('bookBtn');
+    //     bookBtn.disabled = true;
+    //     bookBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Booking...';
+        
+    //     try {
+    //         const response = await fetch('/book/', {
+    //             method: 'POST',
+    //             headers: {
+    //                 'Content-Type': 'application/json',
+    //                 'X-CSRFToken': getCookie('csrftoken')
+    //             },
+    //             body: JSON.stringify({
+    //                 pickup_address: pickupLocation.address,
+    //                 pickup_latitude: pickupLocation.lat,
+    //                 pickup_longitude: pickupLocation.lng,
+    //                 dropoff_address: destinationLocation.address,
+    //                 dropoff_latitude: destinationLocation.lat,
+    //                 dropoff_longitude: destinationLocation.lng,
+    //                 distance_km: distance,
+    //                 duration_minutes: duration
+    //             })
+    //         });
+            
+    //         const data = await response.json();
+            
+    //         if (response.ok) {
+    //             showToast('Ride booked successfully! Waiting for driver...', 'success');
+    //             // Reset form
+    //             document.getElementById('fareEstimate').classList.add('hidden');
+    //             document.getElementById('pickupInput').value = '';
+    //             document.getElementById('destinationInput').value = '';
+                
+    //             // Check for active trip
+    //             setTimeout(() => {
+    //                 checkActiveTrip();
+    //             }, 1000);
+    //         } else {
+    //             showToast(data.error || 'Failed to book ride', 'error');
+    //             bookBtn.disabled = false;
+    //             bookBtn.innerHTML = '<i class="fas fa-bookmark mr-2"></i> Book Now';
+    //         }
+    //     } catch (error) {
+    //         console.error('Booking error:', error);
+    //         showToast('Network error. Please try again.', 'error');
+    //         bookBtn.disabled = false;
+    //         bookBtn.innerHTML = '<i class="fas fa-bookmark mr-2"></i> Book Now';
+    //     }
+    // }
+
     async function bookRide() {
         if (!pickupLocation || !destinationLocation) {
             showToast('Please select pickup and destination', 'warning');
             return;
         }
+        
+        // Store the pickup location for later use
+        const bookingPickupLocation = {...pickupLocation};
         
         const fare = parseFloat(document.getElementById('estimatedFare').textContent);
         const distance = parseFloat(document.getElementById('distance').textContent);
@@ -747,12 +809,12 @@
             
             if (response.ok) {
                 showToast('Ride booked successfully! Waiting for driver...', 'success');
-                // Reset form
-                document.getElementById('fareEstimate').classList.add('hidden');
-                document.getElementById('pickupInput').value = '';
-                document.getElementById('destinationInput').value = '';
                 
-                // Check for active trip
+                // Keep showing nearby drivers for the same pickup location
+                // Don't clear the form immediately
+                document.getElementById('fareEstimate').classList.add('hidden');
+                
+                // Instead, start checking for active trip
                 setTimeout(() => {
                     checkActiveTrip();
                 }, 1000);
@@ -767,7 +829,7 @@
             bookBtn.disabled = false;
             bookBtn.innerHTML = '<i class="fas fa-bookmark mr-2"></i> Book Now';
         }
-    }
+}
     
     function startTripTracking(tripId) {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
